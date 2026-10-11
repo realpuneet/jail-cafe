@@ -1,0 +1,21 @@
+{
+  "name": "jail-ki-chai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Jail Ki Chai - food ordering, table booking and party booking platform (monorepo tooling)",
+  "scripts": {
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm --prefix backend run lint",
+    "test": "npm --prefix backend test"
+  },
+  "lint-staged": {
+    "*.{json,md,yml,yaml}": "prettier --write"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3"
+  }
+}

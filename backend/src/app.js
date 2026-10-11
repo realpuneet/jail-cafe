@@ -1,0 +1,59 @@
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
+import swaggerUi from 'swagger-ui-express';
+import { env } from './config/env.js';
+import { corsOptions } from './config/cors.js';
+import { swaggerSpec } from './config/swagger.js';
+import { isDbReady } from './config/db.js';
+import { isRedisReady } from './config/redis.js';
+import { requestId } from './middlewares/requestId.js';
+import { httpLogger } from './middlewares/httpLogger.js';
+import { globalLimiter } from './middlewares/rateLimiter.js';
+import { notFound } from './middlewares/notFound.js';
+import { errorHandler } from './middlewares/errorHandler.js';
+import { healthRoutes } from './routes/health.routes.js';
+import { apiRouter } from './routes/index.js';
+
+const defaultChecks = { mongo: isDbReady, redis: isRedisReady };
+
+/**
+ * Build the Express app (no listen). Dependencies are injectable for tests.
+ * @param {{readinessChecks?: Record<string, () => Promise<boolean>|boolean>}} [deps]
+ */
+export function createApp({ readinessChecks = defaultChecks } = {}) {
+  const app = express();
+  /** Mutable runtime state shared with probes; server.js flips shuttingDown on SIGTERM. */
+  app.locals.state = { shuttingDown: false };
+
+  app.disable('x-powered-by');
+  app.set('trust proxy', env.TRUST_PROXY);
+  app.set('etag', 'strong');
+
+  app.use(requestId);
+  app.use(httpLogger);
+  // Probes are mounted before rate limiting / CORS so orchestrators are never throttled.
+  app.use(healthRoutes({ readinessChecks, state: app.locals.state }));
+
+  app.use(helmet());
+  app.use(cors(corsOptions));
+  app.use(compression());
+  app.use(globalLimiter());
+  app.use(express.json({ limit: env.BODY_LIMIT }));
+  app.use(express.urlencoded({ extended: false, limit: env.BODY_LIMIT }));
+  app.use(cookieParser());
+  app.use(mongoSanitize());
+  app.use(hpp());
+
+  app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use(env.API_PREFIX, apiRouter());
+
+  app.use(notFound);
+  app.use(errorHandler);
+  return app;
+}
