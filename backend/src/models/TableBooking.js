@@ -41,8 +41,8 @@ const tableBookingSchema = new mongoose.Schema(
 tableBookingSchema.index({ bookingNumber: 1 }, { unique: true });
 // "My bookings", newest first.
 tableBookingSchema.index({ userId: 1, _id: -1 });
-// Staff day view / calendar: a date's bookings by slot and status.
-tableBookingSchema.index({ date: 1, slotId: 1, status: 1 });
+// Staff day view (sorted by start time, no in-memory sort) and the month calendar aggregation.
+tableBookingSchema.index({ date: 1, startsAt: 1, status: 1 });
 // Hold-expiry job.
 tableBookingSchema.index(
   { holdExpiresAt: 1 },

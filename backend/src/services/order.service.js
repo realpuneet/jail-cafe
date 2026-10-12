@@ -4,6 +4,7 @@ import { Cart } from '../models/Cart.js';
 import { nextSeq } from '../models/Counter.js';
 import { Order } from '../models/Order.js';
 import { User } from '../models/User.js';
+import { countEvent } from '../utils/metrics.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   ORDER_ACTIVE_STATUSES,
@@ -177,6 +178,7 @@ export async function placeOrder(userId, input, idempotencyKey) {
     await session.endSession();
   }
 
+  countEvent('order_placed');
   const plain = order.toObject();
   if (isKitchenVisible(plain)) announceNewOrder(plain);
   announceStatus(plain);

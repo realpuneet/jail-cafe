@@ -5,6 +5,7 @@ import { TableBooking } from '../models/TableBooking.js';
 import { User } from '../models/User.js';
 import { enqueue, getQueue } from '../jobs/queues.js';
 import { realtime, rooms } from '../sockets/realtime.js';
+import { countEvent } from '../utils/metrics.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   BOOKING,
@@ -192,6 +193,7 @@ export async function createBooking(userId, input, idempotencyKey, now = new Dat
     await session.endSession();
   }
 
+  countEvent('table_booking_created');
   const plain = booking.toObject();
   if (plain.status === B.CONFIRMED) await afterConfirmed(plain);
   else announce(plain);

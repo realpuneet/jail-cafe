@@ -11,6 +11,8 @@ import { corsOptions } from './config/cors.js';
 import { swaggerSpec } from './config/swagger.js';
 import { isDbReady } from './config/db.js';
 import { isRedisReady } from './config/redis.js';
+import { timingSafeEqual } from 'node:crypto';
+import { metricsMiddleware, registry } from './utils/metrics.js';
 import { requestId } from './middlewares/requestId.js';
 import { httpLogger } from './middlewares/httpLogger.js';
 import { globalLimiter } from './middlewares/rateLimiter.js';
@@ -39,6 +41,18 @@ export function createApp({ readinessChecks = defaultChecks } = {}) {
   app.use(httpLogger);
   // Probes are mounted before rate limiting / CORS so orchestrators are never throttled.
   app.use(healthRoutes({ readinessChecks, state: app.locals.state }));
+  app.use(metricsMiddleware);
+  if (env.METRICS_TOKEN) {
+    // Prometheus scrape endpoint, only mounted when a token is configured. Not rate limited.
+    app.get('/metrics', async (req, res) => {
+      const given = Buffer.from(String(req.headers.authorization ?? ''));
+      const want = Buffer.from(`Bearer ${env.METRICS_TOKEN}`);
+      if (given.length !== want.length || !timingSafeEqual(given, want))
+        return res.status(401).end();
+      res.set('Content-Type', registry.contentType);
+      return res.send(await registry.metrics());
+    });
+  }
 
   app.use(helmet());
   app.use(cors(corsOptions));

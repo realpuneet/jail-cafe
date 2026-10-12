@@ -3,6 +3,7 @@ import { razorpayService } from '../integrations/razorpay.service.js';
 import { GATEWAY_STATUS, Payment, PaymentEvent } from '../models/Payment.js';
 import { Order } from '../models/Order.js';
 import { enqueue } from '../jobs/queues.js';
+import { countEvent } from '../utils/metrics.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   JOBS,
@@ -130,6 +131,7 @@ export async function markCaptured({ providerOrderId, providerPaymentId, amount 
     logger.error({ purpose: payment.purpose }, 'no payment hooks registered');
     return { changed: true };
   }
+  countEvent(`payment_captured_${payment.purpose}`);
   return { changed: true, ...(await hooks.onCaptured(claimed)) };
 }
 

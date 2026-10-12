@@ -4,6 +4,7 @@ import { logger } from './utils/logger.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { getRedis, disconnectRedis } from './config/redis.js';
 import { createApp } from './app.js';
+import { captureException, initErrorTracking } from './utils/errorTracking.js';
 import { closeQueues } from './jobs/queues.js';
 import { startWorkers } from './jobs/workers.js';
 import { initSockets } from './sockets/index.js';
@@ -14,6 +15,7 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 export const closers = [];
 
 async function bootstrap() {
+  await initErrorTracking();
   await connectDb();
   const redis = getRedis();
   await new Promise((resolve, reject) => {
@@ -67,10 +69,12 @@ async function bootstrap() {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('unhandledRejection', (err) => {
     logger.fatal({ err }, 'unhandledRejection');
+    captureException(err, { source: 'unhandledRejection' });
     shutdown('unhandledRejection', 1);
   });
   process.on('uncaughtException', (err) => {
     logger.fatal({ err }, 'uncaughtException');
+    captureException(err, { source: 'uncaughtException' });
     shutdown('uncaughtException', 1);
   });
 }

@@ -31,11 +31,9 @@ const paymentSchema = new mongoose.Schema(
 
 // Webhook/verify lookup by gateway order id.
 paymentSchema.index({ providerOrderId: 1 }, { unique: true });
-// Gateway payment id (refund/webhook), sparse because it is set after payment.
-paymentSchema.index(
-  { providerPaymentId: 1 },
-  { unique: true, partialFilterExpression: { providerPaymentId: { $type: 'string' } } },
-);
+// Gateway payment id (refund/webhook lookups). Sparse: only set after capture, and unlike a
+// partial `$type` index it is usable by plain equality queries (partial would force a scan).
+paymentSchema.index({ providerPaymentId: 1 }, { unique: true, sparse: true });
 // All payments for an order/booking, newest first.
 paymentSchema.index({ purpose: 1, refId: 1, _id: -1 });
 

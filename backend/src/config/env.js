@@ -29,6 +29,11 @@ export const envSchema = z
       .default('info'),
     BODY_LIMIT: z.string().default('100kb'),
     SENTRY_DSN: optional,
+    // Bearer token that unlocks GET /metrics (Prometheus). Empty = endpoint disabled (404).
+    METRICS_TOKEN: z
+      .string()
+      .refine((v) => v === '' || v.length >= 16, 'must be empty or at least 16 characters')
+      .default(''),
     // Run BullMQ workers inside the API process (set false to run them via `npm run worker`)
     RUN_WORKERS: z
       .enum(['true', 'false'])

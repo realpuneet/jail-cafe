@@ -8,6 +8,7 @@ import { expireUnpaidOrders } from '../services/order.service.js';
 import { refundPayment } from '../services/payment.service.js';
 import { JOBS, ORDER, QUEUES } from '../utils/constants.js';
 import { logger } from '../utils/logger.js';
+import { jobsProcessed } from '../utils/metrics.js';
 import { bullPrefix, DEFAULT_JOB_OPTIONS, enqueue, getQueue } from './queues.js';
 
 /** Route a job to its handler by queue name + job name. */
@@ -76,7 +77,9 @@ export async function startWorkers() {
         },
         { connection, prefix: bullPrefix(), concurrency: name === QUEUES.NOTIFICATIONS ? 20 : 5 },
       );
+      worker.on('completed', () => jobsProcessed.inc({ queue: name, outcome: 'completed' }));
       worker.on('failed', (job, err) => {
+        jobsProcessed.inc({ queue: name, outcome: 'failed' });
         logger.warn(
           { queue: name, jobId: job?.id, attempt: job?.attemptsMade, err: err.message },
           'job failed',

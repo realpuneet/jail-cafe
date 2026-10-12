@@ -1,5 +1,6 @@
 import { ZodError } from 'zod';
 import { env } from '../config/env.js';
+import { captureException } from '../utils/errorTracking.js';
 import { logger } from '../utils/logger.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ERROR_CODES, HTTP_STATUS } from '../utils/constants.js';
@@ -73,7 +74,7 @@ export const errorHandler = (err, req, res, _next) => {
 
   if (isServerError) {
     logger.error({ err, reqId: req.id }, 'unhandled error');
-    // Sentry-ready hook: wire Sentry.captureException(err) here when SENTRY_DSN is set.
+    captureException(err, { requestId: req.id, method: req.method, path: req.path });
   }
 
   if (res.headersSent) return;
