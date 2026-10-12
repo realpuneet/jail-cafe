@@ -49,7 +49,7 @@ describe('otp.service', () => {
   it('caps OTP requests per hour', async () => {
     for (let i = 0; i < 5; i++) {
       await otp.requestOtp(phone);
-      await redis.del(`jkc:otp:cool:${phone}`);
+      await redis.del(`${process.env.REDIS_KEY_PREFIX}otp:cool:${phone}`);
     }
     await expect(otp.requestOtp(phone)).rejects.toMatchObject({ statusCode: 429 });
   });
@@ -57,7 +57,7 @@ describe('otp.service', () => {
   it('rolls back state when the SMS provider fails', async () => {
     smsService.sendOtp = jest.fn().mockRejectedValue(new Error('provider down'));
     await expect(otp.requestOtp(phone)).rejects.toThrow('provider down');
-    expect(await redis.get(`jkc:otp:code:${phone}`)).toBeNull();
+    expect(await redis.get(`${process.env.REDIS_KEY_PREFIX}otp:code:${phone}`)).toBeNull();
     smsService.sendOtp = jest.fn(async () => {});
     await expect(otp.requestOtp(phone)).resolves.toBeDefined(); // cooldown was released
   });

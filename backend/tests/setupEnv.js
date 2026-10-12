@@ -13,3 +13,10 @@ process.env.IMAGEKIT_PRIVATE_KEY = 'sk_test';
 // Per-IP limiter would trip across many requests from one supertest client.
 process.env.AUTH_RATE_LIMIT_MAX = '10000';
 process.env.RATE_LIMIT_MAX = '100000';
+process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+process.env.RAZORPAY_KEY_SECRET = 'rzp_test_secret_value';
+process.env.RAZORPAY_WEBHOOK_SECRET = 'whsec_test_value';
+process.env.REDIS_URL = process.env.REDIS_TEST_URL ?? process.env.REDIS_URL;
+// Isolate from any dev server / other test run sharing the same Redis (queues, caches, limits).
+process.env.REDIS_KEY_PREFIX = `jkctest${process.pid}:`;
+process.env.METRICS_TOKEN = 'metrics-token-for-tests-123';

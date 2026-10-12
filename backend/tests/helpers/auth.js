@@ -17,7 +17,7 @@ export const cookieOf = (res) =>
 
 /** Full OTP login; returns { accessToken, cookie, user }. */
 export async function loginCustomer(app, codes, phone = '9876543210', redis) {
-  await redis?.del(`jkc:otp:cool:+91${phone}`);
+  await redis?.del(`${process.env.REDIS_KEY_PREFIX}otp:cool:+91${phone}`);
   await request(app).post('/api/v1/auth/otp/request').send({ phone }).expect(200);
   const res = await request(app)
     .post('/api/v1/auth/otp/verify')
@@ -44,3 +44,16 @@ export async function createStaffUser({
     passwordHash: await hashPassword(password),
   });
 }
+
+/** Create a staff-type user and return Authorization headers. */
+export async function staffAuth(app, role = ROLES.ADMIN) {
+  const email = `${role}@test.in`;
+  const phone = { admin: '+919000000001', staff: '+919000000002', rider: '+919000000003' }[role];
+  await createStaffUser({ role, phone, email });
+  const res = await request(app)
+    .post('/api/v1/auth/login')
+    .send({ email, password: 'Sup3rSecret!!' });
+  return { Authorization: `Bearer ${res.body.data.accessToken}` };
+}
+
+export const bearer = (token) => ({ Authorization: `Bearer ${token}` });

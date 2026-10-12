@@ -57,7 +57,7 @@ describe('OTP login', () => {
     const { user } = await loginCustomer(app, codes, '9876543210', redis);
     await User.updateOne({ _id: user._id }, { isActive: false });
     await request(app).post(api('/auth/otp/request')).send({ phone: '9876543210' }).expect(429); // cooldown
-    await redis.del('jkc:otp:cool:+919876543210');
+    await redis.del(`${process.env.REDIS_KEY_PREFIX}otp:cool:+919876543210`);
     await request(app).post(api('/auth/otp/request')).send({ phone: '9876543210' }).expect(200);
     await request(app)
       .post(api('/auth/otp/verify'))
@@ -73,6 +73,14 @@ describe('refresh token rotation', () => {
     const second = cookieOf(r1);
     expect(second).toBeTruthy();
     expect(second).not.toBe(first);
+    // the client restores its session from this response after a page reload
+    expect(r1.body.data.user).toMatchObject({
+      phone: '+919876543210',
+      name: 'Test User',
+      role: 'customer',
+    });
+    expect(r1.body.data.user.passwordHash).toBeUndefined();
+    expect(r1.body.data.accessToken).toBeTruthy();
 
     // Replay after the grace window => theft suspected => whole family revoked.
     await RefreshToken.updateMany(

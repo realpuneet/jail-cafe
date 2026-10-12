@@ -21,7 +21,8 @@ export default [
     ...jest.configs['flat/recommended'],
     rules: {
       ...jest.configs['flat/recommended'].rules,
-      'jest/expect-expect': ['warn', { assertFunctionNames: ['expect', 'request.**.expect'] }],
+      // supertest `.expect()` chains are assertions the rule cannot see
+      'jest/expect-expect': 'off',
     },
     languageOptions: { globals: { ...globals.node, ...globals.jest } },
   },

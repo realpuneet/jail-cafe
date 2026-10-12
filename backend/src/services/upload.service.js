@@ -1,3 +1,4 @@
+import { env } from '../config/env.js';
 import { imagekitService } from '../integrations/imagekit.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ROLES, UPLOAD_FOLDERS } from '../utils/constants.js';
@@ -12,7 +13,11 @@ const STAFF_ROLES = [ROLES.ADMIN, ROLES.STAFF];
 export function getUploadAuth(user, folder = 'misc') {
   if (!UPLOAD_FOLDERS.includes(folder)) throw ApiError.badRequest('Invalid upload folder');
   if (!STAFF_ROLES.includes(user.role) && folder !== 'avatars') throw ApiError.forbidden();
-  return { ...imagekitService.getAuthParams(), folder };
+  return {
+    ...imagekitService.getAuthParams(),
+    folder,
+    uploadFolder: `${env.IMAGEKIT_FOLDER}/${folder}`,
+  };
 }
 
 /** Admin: delete an ImageKit file by id. @param {string} fileId */

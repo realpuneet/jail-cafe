@@ -1,0 +1,186 @@
+@import 'tailwindcss';
+
+/* ---------- Brand tokens ---------- */
+@theme {
+  --font-display: 'Alfa Slab One', 'Rockwell', Georgia, serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-chai-50: #fbf6ef;
+  --color-chai-100: #f4e7d3;
+  --color-chai-200: #e8cda6;
+  --color-chai-300: #d9ab72;
+  --color-chai-400: #c78a47;
+  --color-chai-500: #a9672a;
+  --color-chai-600: #8f5522;
+  --color-chai-700: #6f411d;
+  --color-chai-800: #4f2f1a;
+  --color-chai-900: #33201a;
+  --color-saffron: #f4a300;
+  --color-kulhad: #b9471f;
+  --color-iron: #231d1a;
+  --color-veg: #15803d;
+  --color-nonveg: #b91c1c;
+
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgb(51 32 26 / 0.06), 0 8px 24px -12px rgb(51 32 26 / 0.25);
+}
+
+/* Semantic colours switch with the theme; utilities: bg-bg, bg-surface, text-fg, text-muted, border-line */
+:root {
+  --bg: #fbf6ef;
+  --surface: #ffffff;
+  --surface-2: #f4e7d3;
+  --fg: #33201a;
+  --muted: #6b5548;
+  --line: #e6d5bb;
+  --brand: #8f5522;
+  --brand-fg: #ffffff;
+  --accent: #f4a300;
+  --ring: #b9471f;
+}
+[data-theme='dark'] {
+  --bg: #17110e;
+  --surface: #221a16;
+  --surface-2: #2d231d;
+  --fg: #f4e7d3;
+  --muted: #bfa890;
+  --line: #3d2f26;
+  --brand: #e0a35a;
+  --brand-fg: #1d130e;
+  --accent: #f4a300;
+  --ring: #f4a300;
+}
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-accent: var(--accent);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* Lenis recommended base styles */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+  .lenis.lenis-stopped {
+    overflow: clip;
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  /* The jail-bar motif: vertical iron bars, subtle by default */
+  .bars {
+    background-image: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 26px);
+  }
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      color-mix(in srgb, var(--surface-2) 60%, white) 37%,
+      var(--surface-2) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  .below-fold {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* Respect reduced motion everywhere (GSAP is also disabled in JS). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

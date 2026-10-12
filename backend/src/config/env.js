@@ -29,6 +29,16 @@ export const envSchema = z
       .default('info'),
     BODY_LIMIT: z.string().default('100kb'),
     SENTRY_DSN: optional,
+    // Bearer token that unlocks GET /metrics (Prometheus). Empty = endpoint disabled (404).
+    METRICS_TOKEN: z
+      .string()
+      .refine((v) => v === '' || v.length >= 16, 'must be empty or at least 16 characters')
+      .default(''),
+    // Run BullMQ workers inside the API process (set false to run them via `npm run worker`)
+    RUN_WORKERS: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
 
     // MongoDB
     MONGO_URI: z
@@ -88,6 +98,9 @@ export const envSchema = z
     // Cafe
     CAFE_NAME: z.string().default('Jail Ki Chai'),
     DEFAULT_DELIVERY_RADIUS_KM: z.coerce.number().positive().default(7),
+    CAFE_LAT: z.coerce.number().min(-90).max(90).optional(),
+    CAFE_LNG: z.coerce.number().min(-180).max(180).optional(),
+    PARTY_MAX_PER_DAY: z.coerce.number().int().min(1).default(2),
     MIN_ORDER_AMOUNT: z.coerce.number().min(0).default(100),
   })
   .superRefine((cfg, ctx) => {

@@ -1,15 +1,6 @@
 import mongoose from 'mongoose';
 import { ROLE_VALUES, ROLES } from '../utils/constants.js';
-
-const imageSchema = new mongoose.Schema(
-  {
-    fileId: { type: String, required: true },
-    url: { type: String, required: true },
-    filePath: { type: String, required: true },
-    thumbnailUrl: { type: String },
-  },
-  { _id: false },
-);
+import { imageSchema } from './schemas/image.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -27,11 +18,9 @@ const userSchema = new mongoose.Schema(
 
 // Login by phone (OTP) and uniqueness.
 userSchema.index({ phone: 1 }, { unique: true });
-// Staff login by email; partial so customers without email don't collide on null.
-userSchema.index(
-  { email: 1 },
-  { unique: true, partialFilterExpression: { email: { $type: 'string' } } },
-);
+// Staff login by email. Sparse (not partial): the planner cannot prove that `email = 'x'` implies
+// `$type: string`, so a partial index would not serve the login lookup and it would scan the collection.
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
 // Admin user lists filtered by role, newest first.
 userSchema.index({ role: 1, _id: -1 });
 

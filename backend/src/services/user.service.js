@@ -28,7 +28,7 @@ export async function updateProfile(id, patch) {
     id,
     { $set: patch },
     {
-      new: true,
+      returnDocument: 'after',
       projection: PUBLIC_FIELDS,
       runValidators: true,
     },
@@ -93,7 +93,7 @@ export async function setRole(actorId, targetId, role) {
   const user = await User.findByIdAndUpdate(
     targetId,
     { $set: { role } },
-    { new: true, projection: PUBLIC_FIELDS },
+    { returnDocument: 'after', projection: PUBLIC_FIELDS },
   ).lean();
   if (!user) throw ApiError.notFound('User not found');
   return user;
@@ -110,7 +110,7 @@ export async function setActive(actorId, targetId, isActive) {
   const user = await User.findByIdAndUpdate(
     targetId,
     { $set: { isActive } },
-    { new: true, projection: PUBLIC_FIELDS },
+    { returnDocument: 'after', projection: PUBLIC_FIELDS },
   ).lean();
   if (!user) throw ApiError.notFound('User not found');
   const redis = getRedis();
