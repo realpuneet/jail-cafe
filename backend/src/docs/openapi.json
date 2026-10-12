@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jail Ki Chai API",
+    "version": "0.1.0",
+    "description": "Food ordering, table booking and party booking platform. All responses use the envelope `{ success, message, data, meta }`."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" },
+          "code": { "type": "string", "example": "VALIDATION_ERROR" },
+          "details": {},
+          "requestId": { "type": "string" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  },
+  "paths": {}
+}
