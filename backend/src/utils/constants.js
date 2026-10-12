@@ -74,6 +74,8 @@ export const CACHE_TTL = Object.freeze({
   BANNERS: 120,
   ZONES: 600,
   COUPONS: 60,
+  SETTINGS: 60,
+  REVIEWS: 120,
 });
 
 export const BANNER_POSITIONS = Object.freeze(['home_hero', 'home_secondary', 'menu', 'party']);
@@ -138,6 +140,7 @@ export const JOBS = Object.freeze({
   EXPIRE_UNPAID_ORDERS: 'expire-unpaid-orders',
   EXPIRE_BOOKING_HOLDS: 'expire-booking-holds',
   EXPIRE_PARTY_HOLDS: 'expire-party-holds',
+  ANALYTICS_ROLLUP: 'analytics-rollup',
   BOOKING_REMINDER: 'booking-reminder',
 });
 
@@ -206,3 +209,6 @@ export const PARTY = Object.freeze({
   MAX_OPEN_PER_USER: 5,
   DEFAULT_TOKEN_PERCENT: 25,
 });
+
+export const REVIEW_STATUS = Object.freeze({ PUBLISHED: 'published', HIDDEN: 'hidden' });
+export const ANALYTICS = Object.freeze({ MAX_DAYS: 92, TOP_ITEMS: 10 });

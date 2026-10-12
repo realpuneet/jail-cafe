@@ -14,6 +14,7 @@ export const keys = {
   bookings: ['bookings'],
   partyPackages: (type) => ['party-packages', type ?? 'all'],
   partyInquiries: ['party-inquiries'],
+  admin: (...parts) => ['admin', ...parts],
   partyInquiry: (id) => ['party-inquiry', id],
   booking: (id) => ['booking', id],
   unread: ['notifications', 'unread'],

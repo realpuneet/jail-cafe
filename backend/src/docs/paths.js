@@ -753,4 +753,72 @@ export const paths = {
       params: [idParam],
     }),
   },
+
+  '/admin/analytics/dashboard': {
+    get: op(
+      'Admin',
+      'Dashboard: totals vs previous period, daily series, orders by hour, top items, live counts (reads daily rollups; today is refreshed every 30 s)',
+      {
+        roles: 'admin',
+        params: [
+          {
+            name: 'days',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 92, default: 7 },
+          },
+        ],
+      },
+    ),
+  },
+  '/admin/settings': {
+    get: op('Admin', 'Service switches and cafe details', { roles: 'admin, staff' }),
+    put: op(
+      'Admin',
+      'Update settings (acceptingOrders / acceptingBookings take effect immediately)',
+      {
+        roles: 'admin',
+        body: obj({
+          acceptingOrders: { type: 'boolean' },
+          acceptingBookings: { type: 'boolean' },
+          announcement: str(),
+          openingHours: str(),
+          contactPhone: str(),
+          address: str(),
+        }),
+      },
+    ),
+  },
+  '/settings': { get: op('Admin', 'Public settings (cached)', { auth: false }) },
+  '/reviews': {
+    get: op('Reviews', 'Published reviews (cursor)', { auth: false, params: cursorParams }),
+    post: op('Reviews', 'Review a delivered order (once)', {
+      status: '201',
+      body: obj(
+        { orderId: str(), rating: { type: 'integer', minimum: 1, maximum: 5 }, comment: str() },
+        ['orderId', 'rating'],
+      ),
+    }),
+  },
+  '/reviews/summary': { get: op('Reviews', 'Average rating and count (cached)', { auth: false }) },
+  '/reviews/order/{orderId}': {
+    get: op('Reviews', 'My review for an order or null', {
+      params: [{ name: 'orderId', in: 'path', required: true, schema: str() }],
+    }),
+  },
+  '/reviews/manage': {
+    get: op('Reviews', 'All reviews for moderation', {
+      roles: 'admin',
+      params: [
+        ...cursorParams,
+        { name: 'status', in: 'query', schema: str({ enum: ['published', 'hidden'] }) },
+      ],
+    }),
+  },
+  '/reviews/{id}/status': {
+    patch: op('Reviews', 'Publish or hide', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ status: str({ enum: ['published', 'hidden'] }) }, ['status']),
+    }),
+  },
 };

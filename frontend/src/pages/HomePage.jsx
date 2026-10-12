@@ -12,6 +12,7 @@ import Button from '../components/ui/Button.jsx';
 import { MenuCardSkeleton } from '../components/ui/Skeleton.jsx';
 import MenuCard from '../features/menu/components/MenuCard.jsx';
 import { useBanners, useCategories, useMenu } from '../features/menu/hooks.js';
+import ReviewsStrip from '../features/reviews/ReviewsStrip.jsx';
 import { useParallax } from '../hooks/useParallax.js';
 
 const STEPS = [
@@ -190,6 +191,8 @@ export default function HomePage() {
           </div>
         </Reveal>
       </section>
+
+      <ReviewsStrip />
 
       <section className="container-page pt-16" aria-labelledby="how-h">
         <Reveal as="h2" id="how-h" className="mb-6 text-3xl sm:text-4xl">

@@ -18,6 +18,7 @@ import {
 } from '../utils/constants.js';
 import { formatTime12, slotStartsAt } from '../utils/datetime.js';
 import { paginate } from '../utils/pagination.js';
+import { assertAcceptingBookings } from './settings.service.js';
 import * as notifications from './notification.service.js';
 import { assertBookableDate, isBookableNow } from './bookingSlot.service.js';
 import { createGatewayPayment, queueRefund, registerPurpose } from './payment.service.js';
@@ -127,6 +128,7 @@ async function afterConfirmed(booking) {
  * @param {string} [idempotencyKey]
  */
 export async function createBooking(userId, input, idempotencyKey, now = new Date()) {
+  await assertAcceptingBookings();
   if (idempotencyKey) {
     const existing = await TableBooking.findOne({ userId, idempotencyKey }).lean();
     if (existing) return { booking: existing, replayed: true };

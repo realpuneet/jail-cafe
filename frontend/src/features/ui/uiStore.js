@@ -8,6 +8,8 @@ export const useUiStore = create(
   persist(
     (set, get) => ({
       theme: null, // null = follow the OS
+      soundOn: false, // admin new-order alert (browsers require a user gesture to enable audio)
+      setSoundOn: (soundOn) => set({ soundOn }),
       cartOpen: false,
       toasts: [],
       setTheme: (theme) => {
@@ -33,7 +35,7 @@ export const useUiStore = create(
       },
       dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     }),
-    { name: 'jkc-ui', partialize: (s) => ({ theme: s.theme }) },
+    { name: 'jkc-ui', partialize: (s) => ({ theme: s.theme, soundOn: s.soundOn }) },
   ),
 );
 

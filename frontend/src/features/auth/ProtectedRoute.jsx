@@ -14,7 +14,7 @@ export default function ProtectedRoute({ roles }) {
 
   if (status === 'idle') return <PageSkeleton />;
   if (status !== 'authenticated')
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to={roles ? '/staff-login' : '/login'} replace state={{ from: location }} />;
   if (roles && !roles.includes(role)) return <Navigate to="/" replace />;
   return <Outlet />;
 }

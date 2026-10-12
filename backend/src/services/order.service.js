@@ -15,6 +15,7 @@ import {
 } from '../utils/constants.js';
 import { assertTransition } from '../utils/orderStateMachine.js';
 import { paginate } from '../utils/pagination.js';
+import { assertAcceptingOrders } from './settings.service.js';
 import { queueRefund } from './payment.service.js';
 import * as couponService from './coupon.service.js';
 import * as deliveryZones from './deliveryZone.service.js';
@@ -108,6 +109,7 @@ const toSnapshot = (l) => ({
  * @param {string} [idempotencyKey]
  */
 export async function placeOrder(userId, input, idempotencyKey) {
+  await assertAcceptingOrders();
   if (idempotencyKey) {
     const existing = await Order.findOne({ userId, idempotencyKey }).lean();
     if (existing) return { order: existing, replayed: true };

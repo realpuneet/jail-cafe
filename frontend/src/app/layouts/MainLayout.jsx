@@ -67,6 +67,7 @@ function Header() {
   const status = useAuthStore((s) => s.status);
   const authed = status === 'authenticated';
   const user = useAuthStore((s) => s.user);
+  const role = user?.role;
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const { data: unread = 0 } = useUnreadCount(authed);
   const ref = useRef(null);
@@ -101,6 +102,11 @@ function Header() {
           {authed && (
             <NavLink to="/orders" className={navCls}>
               My orders
+            </NavLink>
+          )}
+          {(role === 'admin' || role === 'staff') && (
+            <NavLink to="/admin" className={navCls}>
+              Admin
             </NavLink>
           )}
           {authed && (
@@ -230,6 +236,11 @@ function Footer() {
             <li>
               <Link className="hover:underline" to="/profile">
                 Profile
+              </Link>
+            </li>
+            <li>
+              <Link className="hover:underline" to="/staff-login">
+                Staff login
               </Link>
             </li>
           </ul>

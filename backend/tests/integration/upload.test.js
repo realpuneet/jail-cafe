@@ -35,7 +35,12 @@ describe('uploads', () => {
     const { accessToken } = await loginCustomer(app, codes);
     const c = { Authorization: `Bearer ${accessToken}` };
     const ok = await request(app).get(api('/uploads/auth?folder=avatars')).set(c).expect(200);
-    expect(ok.body.data).toMatchObject({ token: 't', signature: 's', folder: 'avatars' });
+    expect(ok.body.data).toMatchObject({
+      token: 't',
+      signature: 's',
+      folder: 'avatars',
+      uploadFolder: '/jailkichai/avatars',
+    });
     expect(ok.headers['cache-control']).toBe('no-store');
     await request(app).get(api('/uploads/auth?folder=menu')).set(c).expect(403);
     await request(app).get(api('/uploads/auth?folder=nope')).set(c).expect(422);

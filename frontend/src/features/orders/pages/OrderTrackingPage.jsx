@@ -13,6 +13,7 @@ import { keys } from '../../../lib/queryKeys.js';
 import { useAuthStore } from '../../auth/authStore.js';
 import { toast } from '../../ui/uiStore.js';
 import { cancelOrder } from '../api.js';
+import ReviewBox from '../../reviews/ReviewBox.jsx';
 import OrderSuccess from '../components/OrderSuccess.jsx';
 import OrderTimeline from '../components/OrderTimeline.jsx';
 import { useLiveOrder } from '../hooks.js';
@@ -181,6 +182,8 @@ export default function OrderTrackingPage() {
           )}
         </section>
       )}
+
+      {order.status === 'DELIVERED' && <ReviewBox orderId={order._id} />}
 
       <section className="card p-6" aria-labelledby="items-h">
         <h2 id="items-h" className="mb-3 text-2xl">

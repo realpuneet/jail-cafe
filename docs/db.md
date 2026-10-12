@@ -1,6 +1,6 @@
 # Database Design
 
-> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`) **Phase 5** (`bookingslots`, `slotinventories`, `tablebookings`) and **Phase 6** (`partypackages`, `partyinquiries`, `partydays`). All money fields are integer **paise**.
+> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`) **Phase 5** (`bookingslots`, `slotinventories`, `tablebookings`) and **Phase 6** (`partypackages`, `partyinquiries`, `partydays`) and **Phase 7** (`analyticsdailies`, `settings`, `reviews`). All money fields are integer **paise**.
 
 ## Conventions
 
@@ -210,6 +210,21 @@ Indexes: `{inquiryNumber:1}` unique · `{userId:1,_id:-1}` (mine) · `{status:1,
 `{date, booked, capacity, expiresAt}`; unique `{date:1}` (the atomic counter), TTL on `expiresAt` (date + 30 days).
 
 Jobs: `maintenance` → `expire-party-holds` every 5 min. Socket events to the `staff` room: `party:new`, `party:update`.
+
+## Phase 7 collections (admin, analytics)
+
+### `analyticsdailies` (rollups)
+
+One document per IST day, `_id = "YYYY-MM-DD"`: `orders`, `delivered`, `cancelled` (cancelled + rejected), `grossSales` (orders not cancelled/rejected), `revenue` (delivered orders), `discounts`, `byStatus{}`, `byHour[24]` (order count per IST hour), `topItems[≤10]{menuItemId,name,quantity,revenue}`, `bookings`, `bookingGuests`, `partyInquiries`, `newUsers`, `computedAt`. ≈ 2 KB/day ⇒ < 1 MB per year.
+Why: the dashboard must not scan hundreds of millions of orders. The `analytics-rollup` job (every 15 min) recomputes yesterday and today with one `$facet` aggregation over `orders {createdAt}` (index `{createdAt:-1,status:1}`); the dashboard API reads rollups, back-fills any missing past day once, and refreshes _today_ on demand with a 30 s Redis cache. Closed days are served from the rollup even if a late status change happens (the job's “yesterday” pass absorbs the common case). Revenue definitions: `grossSales` = sum of `pricing.total` of non-cancelled/rejected orders created that day; `revenue` = the delivered subset.
+
+### `settings`
+
+`{key (unique), value}` rows for runtime switches: `acceptingOrders`, `acceptingBookings`, `announcement`, `openingHours`, `contactPhone`, `address`. Read through a 60 s cache (`settings:all`) that every admin write invalidates immediately; order placement and table booking check it, so closing the cafe takes effect at once.
+
+### `reviews`
+
+`orderId` (unique: one review per order) · `userId` · `reviewer` (first name only, shown publicly) · `rating` 1–5 · `comment` (≤ 500) · `items[≤5]` dish-name snapshot · `status` (`published|hidden`). Indexes `{orderId:1}` unique · `{status:1,_id:-1}` (public list) · `{userId:1,_id:-1}`. Only delivered orders can be reviewed, by their owner. Public list and average (`reviews:summary`) are cached; hiding a review invalidates them. Public payloads never include `userId`.
 
 ## Sharding & archiving strategy (preview; detailed per collection later)
 
