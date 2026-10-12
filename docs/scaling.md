@@ -5,8 +5,9 @@
 - **Stateless API**: no in-memory sessions; all shared state in Redis/Mongo → run N instances (PM2 cluster / containers) behind a load balancer.
 - **Redis-backed rate limiting** works across instances (`rate-limit-redis`).
 - **Readiness-aware shutdown**: SIGTERM flips `/ready` to 503, drains in-flight requests, then closes Mongo/Redis (queues/sockets join in later phases).
-- **Queues for slow work** (notifications, PDFs, rollups) so API latency stays flat — Phase 3.
-- **Socket.io** uses the Redis adapter (Phase 3); the LB needs sticky sessions (or websocket-only transport).
+- **Queues for slow work** (BullMQ on Redis): notifications (in-app + socket push + WhatsApp/email), refunds and maintenance run in workers with exponential-backoff retries (5 attempts) and a dead-letter queue (`notifications-dlq`). API handlers only enqueue. `RUN_WORKERS=false` + `npm run worker` splits workers into their own deployment; they are safe to run as many replicas.
+- **Socket.io** uses the Redis adapter, so rooms (`user:<id>`, `order:<id>`, `staff`, `riders`) work across instances; workers/other processes publish through the Redis emitter. **Load balancer: enable sticky sessions** (cookie/IP hash) for the long-polling handshake, or force `transports: ['websocket']` on the client and skip stickiness. Rider location is throttled (1 fix / 2 s per socket), authorised once per 30 s per order, and the last fix is cached in Redis.
+- **Idempotency**: `Idempotency-Key` on order creation and gateway-order creation (Redis, 24 h) plus a unique `(userId, idempotencyKey)` index as a backstop; webhooks are de-duplicated by event id.
 
 ## Bottlenecks & what to do
 

@@ -80,3 +80,66 @@ export const BANNER_POSITIONS = Object.freeze(['home_hero', 'home_secondary', 'm
 export const DISCOUNT_TYPES = Object.freeze({ PERCENT: 'percent', FLAT: 'flat' });
 export const ZONE_KINDS = Object.freeze({ PINCODE: 'pincode', DISTANCE: 'distance' });
 export const MAX_PUBLIC_MENU_ITEMS = 500;
+
+export const ORDER_STATUS = Object.freeze({
+  PLACED: 'PLACED',
+  ACCEPTED: 'ACCEPTED',
+  PREPARING: 'PREPARING',
+  READY: 'READY',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
+  REJECTED: 'REJECTED',
+});
+export const ORDER_STATUS_VALUES = Object.freeze(Object.values(ORDER_STATUS));
+export const ORDER_ACTIVE_STATUSES = Object.freeze([
+  ORDER_STATUS.PLACED,
+  ORDER_STATUS.ACCEPTED,
+  ORDER_STATUS.PREPARING,
+  ORDER_STATUS.READY,
+  ORDER_STATUS.OUT_FOR_DELIVERY,
+]);
+
+export const ORDER_TYPE = Object.freeze({ DELIVERY: 'delivery', PICKUP: 'pickup' });
+
+export const PAYMENT_METHOD = Object.freeze({ ONLINE: 'online', COD: 'cod' });
+export const PAYMENT_STATUS = Object.freeze({
+  PENDING: 'pending', // online, awaiting capture
+  COD_PENDING: 'cod_pending', // cash to be collected
+  PAID: 'paid',
+  FAILED: 'failed',
+  REFUNDED: 'refunded',
+  PARTIALLY_REFUNDED: 'partially_refunded',
+});
+export const PAYMENT_PURPOSE = Object.freeze({
+  ORDER: 'order',
+  BOOKING: 'booking',
+  PARTY: 'party',
+});
+
+export const CART = Object.freeze({ MAX_LINES: 50, MAX_QTY_PER_LINE: 20, TTL_DAYS: 30 });
+export const ORDER = Object.freeze({
+  UNPAID_EXPIRY_MINUTES: 15,
+  MAX_NOTE_LENGTH: 300,
+});
+export const IDEMPOTENCY_TTL_SECONDS = 24 * 3600;
+
+export const QUEUES = Object.freeze({
+  NOTIFICATIONS: 'notifications',
+  NOTIFICATIONS_DLQ: 'notifications-dlq',
+  PAYMENTS: 'payments',
+  MAINTENANCE: 'maintenance',
+});
+export const JOBS = Object.freeze({
+  NOTIFY: 'notify',
+  REFUND_ORDER: 'refund-order',
+  EXPIRE_UNPAID_ORDERS: 'expire-unpaid-orders',
+});
+
+export const SOCKET_EVENTS = Object.freeze({
+  ORDER_NEW: 'order:new',
+  ORDER_STATUS: 'order:status',
+  ORDER_PAYMENT: 'order:payment',
+  ORDER_LOCATION: 'order:location',
+  NOTIFICATION: 'notification:new',
+});

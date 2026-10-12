@@ -60,51 +60,96 @@ export async function validate(userId, code, subtotal) {
 }
 
 /**
- * Atomically redeem a coupon for an order (call from the order transaction flow in Phase 3).
- * Idempotent per (coupon, order). Enforces total and per-user limits under concurrency.
- * @param {{couponId: string, userId: string, orderId: string, discount: number}} p
+ * Atomically redeem a coupon for an order. Idempotent per (coupon, order). Enforces the total
+ * and per-user limits under concurrency. Pass `session` to join the caller's transaction
+ * (order creation); otherwise a transaction of its own is used.
+ * @param {{couponId: any, userId: any, orderId: any, discount: number, session?: import('mongoose').ClientSession}} p
  */
-export async function redeem({ couponId, userId, orderId, discount }) {
-  const existing = await CouponRedemption.findOne({ couponId, orderId }).lean();
-  if (existing) return existing;
+export async function redeem({ couponId, userId, orderId, discount, session }) {
+  const run = async (s) => {
+    const existing = await CouponRedemption.findOne({ couponId, orderId }, null, {
+      session: s,
+    }).lean();
+    if (existing) return existing;
 
-  const session = await mongoose.startSession();
+    const coupon = await Coupon.findOneAndUpdate(
+      {
+        _id: couponId,
+        isActive: true,
+        $or: [
+          { usageLimit: { $exists: false } },
+          { $expr: { $lt: ['$usedCount', '$usageLimit'] } },
+        ],
+      },
+      { $inc: { usedCount: 1 } },
+      { session: s, returnDocument: 'after', projection: 'perUserLimit' },
+    );
+    if (!coupon) throw ApiError.badRequest('This coupon has been fully redeemed');
+
+    try {
+      await CouponUsage.findOneAndUpdate(
+        { couponId, userId, count: { $lt: coupon.perUserLimit ?? 1 } },
+        { $inc: { count: 1 } },
+        { session: s, upsert: true },
+      );
+    } catch (err) {
+      if (err.code === 11000) throw ApiError.badRequest('You have already used this coupon');
+      throw err;
+    }
+    const [doc] = await CouponRedemption.create([{ couponId, userId, orderId, discount }], {
+      session: s,
+    });
+    return doc.toObject();
+  };
+
+  if (session) return run(session);
+  const own = await mongoose.startSession();
   try {
     let result;
-    await session.withTransaction(async () => {
-      const coupon = await Coupon.findOneAndUpdate(
-        {
-          _id: couponId,
-          isActive: true,
-          $or: [
-            { usageLimit: { $exists: false } },
-            { $expr: { $lt: ['$usedCount', '$usageLimit'] } },
-          ],
-        },
-        { $inc: { usedCount: 1 } },
-        { session, returnDocument: 'after', projection: 'perUserLimit' },
-      );
-      if (!coupon) throw ApiError.badRequest('This coupon has been fully redeemed');
-
-      try {
-        await CouponUsage.findOneAndUpdate(
-          { couponId, userId, count: { $lt: coupon.perUserLimit ?? 1 } },
-          { $inc: { count: 1 } },
-          { session, upsert: true },
-        );
-      } catch (err) {
-        if (err.code === 11000) throw ApiError.badRequest('You have already used this coupon');
-        throw err;
-      }
-      [result] = await CouponRedemption.create([{ couponId, userId, orderId, discount }], {
-        session,
-      });
+    await own.withTransaction(async () => {
+      result = await run(own);
     });
     await invalidate('coupons');
-    return result.toObject();
+    return result;
+  } finally {
+    await own.endSession();
+  }
+}
+
+/**
+ * Give a coupon use back (order cancelled / rejected). Idempotent per order.
+ * @param {{orderId: any}} p
+ */
+export async function release({ orderId }) {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const red = await CouponRedemption.findOneAndDelete({ orderId }, { session });
+      if (!red) return;
+      await Coupon.updateOne(
+        { _id: red.couponId, usedCount: { $gt: 0 } },
+        { $inc: { usedCount: -1 } },
+        { session },
+      );
+      await CouponUsage.updateOne(
+        { couponId: red.couponId, userId: red.userId, count: { $gt: 0 } },
+        { $inc: { count: -1 } },
+        { session },
+      );
+    });
+    await invalidate('coupons');
   } finally {
     await session.endSession();
   }
+}
+
+/** Coupon + the user's prior uses, for order placement. @param {string} code @param {any} userId */
+export async function loadForUser(code, userId) {
+  const coupon = await Coupon.findOne({ code }).lean();
+  const usage = coupon
+    ? await CouponUsage.findOne({ couponId: coupon._id, userId }, 'count').lean()
+    : null;
+  return { coupon, userUses: usage?.count ?? 0 };
 }
 
 /** Public "available offers". */

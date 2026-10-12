@@ -96,6 +96,15 @@ async function seedCatalog() {
 async function seedZonesAndCoupons() {
   const zones = [
     {
+      name: 'Indore Central (pincodes)',
+      kind: 'pincode',
+      pincodes: ['452001', '452002', '452003', '452010'],
+      deliveryCharge: 2500,
+      freeDeliveryAbove: 50000,
+      minOrderAmount: 10000,
+      estimatedMinutes: 30,
+    },
+    {
       name: 'Nearby (0-3 km)',
       kind: 'distance',
       minKm: 0,

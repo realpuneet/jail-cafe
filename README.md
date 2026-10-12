@@ -2,7 +2,7 @@
 
 Food ordering + table booking + party booking + admin/staff/rider panels for the cafe **Jail Ki Chai**, built to scale to 1 Cr+ registered users.
 
-> **Status:** Phase 0–2 complete (scaffold, auth/users/addresses/uploads, catalog + caching). See [Roadmap](#roadmap).
+> **Status:** Phase 0–3 complete (scaffold, auth, catalog + caching, cart/orders/payments/realtime/notifications). See [Roadmap](#roadmap).
 
 ## Features (target)
 
@@ -89,12 +89,16 @@ Seed (`npm run seed`) and the frontend scripts arrive in later phases.
 - `GET/PATCH /users/me`, `PUT /users/me/avatar`; admin: `GET/POST /users`, `PATCH /users/:id/role|status`
 - `/addresses` CRUD + `PUT /addresses/:id/default`; `GET /uploads/auth` (ImageKit signature)
 - Catalog (public, cached): `GET /categories`, `GET /menu-items?category&veg&available&q`, `GET /menu-items/:idOrSlug`, `GET /banners?position`, `GET /delivery-zones`, `POST /delivery-zones/quote`, `GET /coupons`; `POST /coupons/validate` (auth). Admin/staff write endpoints and `/…/manage` lists are documented in Swagger. **All prices are integer paise.**
+- Cart `/cart…` (server-priced, atomic) · `POST /orders/preview`, `POST /orders` (**requires `Idempotency-Key`**), `GET /orders`, `POST /orders/:id/cancel` · staff `GET /orders/manage`, `PATCH /orders/:id/status|assign` · rider `GET /orders/rider/mine`
+- Payments: `POST /payments/razorpay/order` → Razorpay Checkout → `POST /payments/razorpay/verify`; `POST /payments/razorpay/webhook` (signature + idempotency). COD supported.
+- `GET /notifications`, `/notifications/unread-count`, `POST /notifications/read`
+- **Realtime (Socket.io, same origin as the API)** – connect with `auth: { token: <access token> }`. Client → server: `order:subscribe {orderId}` (ack returns status + last rider location), `rider:location {orderId,lat,lng}` (riders). Server → client: `order:new` (staff room; play the alert sound), `order:status`, `order:payment`, `order:location`, `notification:new`.
 - Probes: `GET /health` (liveness), `GET /ready` (Mongo + Redis; 503 while shutting down)
 - Response envelope: `{ success, message, data, meta }`; errors: `{ success:false, message, code, details, requestId }`
 
 ## Testing
 
-`cd backend && npm test`. Integration tests start an in-memory MongoDB **replica set** via `mongodb-memory-server` (first run downloads a `mongod` binary; set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to use a local one) and a fake Redis, so no services are required.
+`cd backend && npm test`. Integration tests start an in-memory MongoDB **replica set** via `mongodb-memory-server` (first run downloads a `mongod` binary; set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to use a local one) and a fake Redis. The BullMQ suite (`tests/integration/queue.test.js`) needs a real Redis: it runs when `CI=true` or `RUN_REDIS_TESTS=1` (uses `REDIS_TEST_URL`, default `redis://127.0.0.1:6379`) and is skipped otherwise.
 
 ## Deployment (summary)
 

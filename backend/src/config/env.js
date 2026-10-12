@@ -29,6 +29,11 @@ export const envSchema = z
       .default('info'),
     BODY_LIMIT: z.string().default('100kb'),
     SENTRY_DSN: optional,
+    // Run BullMQ workers inside the API process (set false to run them via `npm run worker`)
+    RUN_WORKERS: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
 
     // MongoDB
     MONGO_URI: z

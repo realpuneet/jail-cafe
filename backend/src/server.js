@@ -4,6 +4,9 @@ import { logger } from './utils/logger.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { getRedis, disconnectRedis } from './config/redis.js';
 import { createApp } from './app.js';
+import { closeQueues } from './jobs/queues.js';
+import { startWorkers } from './jobs/workers.js';
+import { initSockets } from './sockets/index.js';
 
 const SHUTDOWN_TIMEOUT_MS = 15_000;
 
@@ -23,6 +26,11 @@ async function bootstrap() {
   const server = http.createServer(app);
   server.keepAliveTimeout = 65_000; // above typical LB idle timeout (60s)
   server.headersTimeout = 66_000;
+
+  const sockets = initSockets(server);
+  closers.push(() => sockets.close());
+  if (env.RUN_WORKERS) closers.push(await startWorkers());
+  closers.push(() => closeQueues());
 
   await new Promise((resolve) => server.listen(env.PORT, resolve));
   logger.info({ port: env.PORT, env: env.NODE_ENV, pid: process.pid }, 'API listening');

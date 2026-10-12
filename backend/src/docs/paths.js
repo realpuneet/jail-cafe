@@ -364,4 +364,158 @@ export const paths = {
     }),
     delete: op('Coupons', 'Deactivate coupon', { roles: 'admin', params: [idParam] }),
   },
+
+  '/cart': {
+    get: op('Cart', 'My priced cart (prices from current menu)'),
+    delete: op('Cart', 'Clear cart'),
+  },
+  '/cart/items': {
+    post: op('Cart', 'Add item (merges identical lines atomically)', {
+      body: obj(
+        {
+          menuItemId: str(),
+          variantId: str(),
+          addOnIds: { type: 'array', items: str() },
+          quantity: { type: 'integer', minimum: 1, maximum: 20 },
+          note: str(),
+        },
+        ['menuItemId'],
+      ),
+    }),
+  },
+  '/cart/items/{lineId}': {
+    patch: op('Cart', 'Set quantity (0 removes)', {
+      params: [{ name: 'lineId', in: 'path', required: true, schema: str() }],
+      body: obj({ quantity: { type: 'integer' } }, ['quantity']),
+    }),
+    delete: op('Cart', 'Remove line', {
+      params: [{ name: 'lineId', in: 'path', required: true, schema: str() }],
+    }),
+  },
+  '/cart/coupon': {
+    put: op('Cart', 'Apply coupon', { body: obj({ code: str() }, ['code']) }),
+    delete: op('Cart', 'Remove coupon'),
+  },
+  '/orders/preview': {
+    post: op('Orders', 'Checkout totals (no side effects)', {
+      body: obj({ type: str({ enum: ['delivery', 'pickup'] }), addressId: str() }),
+    }),
+  },
+  '/orders': {
+    get: op('Orders', 'My orders (cursor)', { params: cursorParams }),
+    post: op(
+      'Orders',
+      'Place order from cart. Requires Idempotency-Key header; totals are recomputed server-side',
+      {
+        status: '201',
+        params: [
+          {
+            name: 'Idempotency-Key',
+            in: 'header',
+            required: true,
+            schema: str({ minLength: 8, maxLength: 80 }),
+          },
+        ],
+        body: obj(
+          {
+            type: str({ enum: ['delivery', 'pickup'] }),
+            addressId: str(),
+            paymentMethod: str({ enum: ['online', 'cod'] }),
+            note: str(),
+          },
+          ['paymentMethod'],
+        ),
+      },
+    ),
+  },
+  '/orders/manage': {
+    get: op('Orders', 'Live board / history', {
+      roles: 'admin, staff',
+      params: [
+        ...cursorParams,
+        { name: 'status', in: 'query', description: 'comma separated', schema: str() },
+        { name: 'active', in: 'query', schema: str({ enum: ['true', 'false'] }) },
+        { name: 'includeUnpaid', in: 'query', schema: str({ enum: ['true', 'false'] }) },
+      ],
+    }),
+  },
+  '/orders/rider/mine': { get: op('Orders', 'My active deliveries', { roles: 'rider' }) },
+  '/orders/{id}': {
+    get: op('Orders', 'Order detail (owner, staff, assigned rider)', { params: [idParam] }),
+  },
+  '/orders/{id}/cancel': {
+    post: op('Orders', 'Customer cancel (only while PLACED)', {
+      params: [idParam],
+      body: obj({ reason: str() }),
+    }),
+  },
+  '/orders/{id}/status': {
+    patch: op(
+      'Orders',
+      'State machine transition: PLACED>ACCEPTED>PREPARING>READY>OUT_FOR_DELIVERY>DELIVERED (+CANCELLED, REJECTED)',
+      {
+        roles: 'admin, staff, rider(DELIVERED only)',
+        params: [idParam],
+        body: obj(
+          {
+            status: str({
+              enum: [
+                'ACCEPTED',
+                'PREPARING',
+                'READY',
+                'OUT_FOR_DELIVERY',
+                'DELIVERED',
+                'CANCELLED',
+                'REJECTED',
+              ],
+            }),
+            note: str(),
+          },
+          ['status'],
+        ),
+      },
+    ),
+  },
+  '/orders/{id}/assign': {
+    patch: op('Orders', 'Assign rider', {
+      roles: 'admin, staff',
+      params: [idParam],
+      body: obj({ riderId: str() }, ['riderId']),
+    }),
+  },
+  '/payments/razorpay/order': {
+    post: op('Payments', 'Create / reuse the Razorpay order for an unpaid online order', {
+      body: obj({ orderId: str() }, ['orderId']),
+    }),
+  },
+  '/payments/razorpay/verify': {
+    post: op('Payments', 'Verify checkout signature (idempotent)', {
+      body: obj(
+        { razorpay_order_id: str(), razorpay_payment_id: str(), razorpay_signature: str() },
+        ['razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'],
+      ),
+    }),
+  },
+  '/payments/razorpay/webhook': {
+    post: {
+      tags: ['Payments'],
+      summary:
+        'Razorpay webhook (HMAC-verified raw body, idempotent by event id). Events: payment.captured, order.paid, payment.failed, refund.processed',
+      parameters: [
+        { name: 'X-Razorpay-Signature', in: 'header', required: true, schema: str() },
+        { name: 'X-Razorpay-Event-Id', in: 'header', schema: str() },
+      ],
+      responses: {
+        200: { description: 'Processed or duplicate' },
+        401: { description: 'Bad signature' },
+      },
+    },
+  },
+  '/notifications': { get: op('Notifications', 'Inbox (cursor)', { params: cursorParams }) },
+  '/notifications/unread-count': { get: op('Notifications', 'Unread badge count') },
+  '/notifications/read': {
+    post: op('Notifications', 'Mark read (ids or all)', {
+      body: obj({ ids: { type: 'array', items: str() } }),
+    }),
+  },
 };

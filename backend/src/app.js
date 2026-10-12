@@ -18,6 +18,7 @@ import { notFound } from './middlewares/notFound.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { apiRouter } from './routes/index.js';
+import { webhookHandler } from './routes/order.routes.js';
 
 const defaultChecks = { mongo: isDbReady, redis: isRedisReady };
 
@@ -43,6 +44,13 @@ export function createApp({ readinessChecks = defaultChecks } = {}) {
   app.use(cors(corsOptions));
   app.use(compression());
   app.use(globalLimiter());
+  // Razorpay webhook needs the exact raw bytes for signature verification, so it is mounted
+  // before the JSON parser (express.json skips bodies that are already parsed).
+  app.post(
+    `${env.API_PREFIX}/payments/razorpay/webhook`,
+    express.raw({ type: '*/*', limit: '256kb' }),
+    webhookHandler,
+  );
   app.use(express.json({ limit: env.BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: env.BODY_LIMIT }));
   app.use(cookieParser());

@@ -1,6 +1,6 @@
 # Database Design
 
-> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) and **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`). All money fields are integer **paise**.
+> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) and **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`). All money fields are integer **paise**.
 
 ## Conventions
 
@@ -117,6 +117,52 @@ Cache: `coupons:code:<CODE>` and `coupons:public` 60 s (usage counts are always 
 ### Cache design (Redis)
 
 Keys are `jkc:cache:<ns>:v<version>:<parts>`; namespaces: `catalog` (categories + menu), `banners`, `zones`, `coupons`. Every admin write calls `invalidate(ns)` which `INCR`s `jkc:cache:ver:<ns>` — O(1), no `SCAN`; stale entries just expire by TTL. Reads are single-flight per process (no stampede) and **fail open** if Redis is down. Public GETs also send `Cache-Control: public, max-age, s-maxage, stale-while-revalidate` + strong ETags (CDN-friendly; worst-case CDN staleness = `s-maxage`).
+
+## Phase 3 collections
+
+### State machines
+
+**Order** (`orders.status`): `PLACED → ACCEPTED → PREPARING → READY → OUT_FOR_DELIVERY → DELIVERED`; `CANCELLED` from PLACED/ACCEPTED/PREPARING/READY; `REJECTED` from PLACED. Pickup orders go `READY → DELIVERED`. Terminal: DELIVERED, CANCELLED, REJECTED.
+Actors: admin/staff any legal move · customer only `PLACED → CANCELLED` · rider only `OUT_FOR_DELIVERY → DELIVERED` on orders assigned to them. Every move is an atomic compare-and-set on the current status (`findOneAndUpdate({_id, status: from})`) plus a `$push` to `statusHistory`; a concurrent loser gets 409.
+**Payment** (`orders.payment.status`): online `pending → paid → (partially_)refunded`; COD `cod_pending → paid` (set when the order is DELIVERED). Online orders are invisible to the kitchen (board, `ACCEPTED`) until `paid`; unpaid ones auto-cancel after 15 min.
+**Gateway payment** (`payments.status`): `created → captured → (partially_)refunded`, or `failed` (retryable; a later capture overrides it, a failure never downgrades a capture).
+
+### `carts`
+
+One doc per user (unique `userId`). `items[]` ≤ 50 lines: `{lineKey, menuItemId, variantId?, addOnIds[], quantity (1–20), note?}`; **no prices are stored** — the cart is re-priced from the live menu on every read. `couponCode?`, `expiresAt`.
+Indexes: `{userId:1}` unique · `{expiresAt:1}` **TTL 0** (abandoned carts vanish 30 days after the last change). Adds are single atomic updates keyed by `lineKey` (hash of item/variant/add-ons/note), so concurrent taps never lose quantity.
+
+### `counters`
+
+`{_id: "order:YYMMDD", seq, expiresAt}` — atomic `$inc` upsert gives the daily order sequence (`JKC-YYMMDD-0001`, IST date). TTL index removes counters after 3 days.
+
+### `orders`
+
+Fields: `orderNumber`(unique) · `userId` · `type` (`delivery|pickup`) · `items[]` ≤ 50 **snapshots** `{menuItemId,name,isVeg,variantId,variantName,addOns[{addOnId,name,price}],unitPrice,quantity,lineTotal,taxPercent,note}` · `address` snapshot (+GeoJSON) · `pricing{subtotal,discount,deliveryCharge,taxIncluded,total}` (paise; tax is informational — menu prices are GST-inclusive) · `coupon{couponId,code,discount}` · `delivery{zoneId,zoneName,estimatedMinutes,distanceKm}` · `payment{method (online|cod),status,paidAt,refundedAmount}` · `status` · `statusHistory[]` (≤ 8 by construction: `{status,at,by,role,note}`) · `riderId` · `note` · `idempotencyKey` · `cancelReason` · `deliveredAt`.
+Indexes: `{orderNumber:1}` unique · `{userId:1,_id:-1}` (my orders, cursor) · `{status:1,createdAt:1}` (live board) · `{riderId:1,status:1}` partial on riderId (rider app) · `{userId:1,idempotencyKey:1}` unique partial (idempotent placement backstop) · `{payment.status:1,createdAt:1}` partial on `pending` (expiry job) · `{createdAt:-1,status:1}` (analytics).
+Size ≈ 2–4 KB; at 1 Cr users × ~20 orders ≈ 200 Cr docs ⇒ shard on hashed `userId` (user history stays on one shard) and archive terminal orders > 12 months to cold storage.
+Placement is one transaction: order insert + coupon redemption + cart delete. Totals, delivery charge and discounts are always recomputed server-side.
+
+### `payments`
+
+Gateway attempts: `purpose (order|booking|party)` · `refId` · `userId` · `provider` · `providerOrderId` (unique) · `providerPaymentId` (unique partial) · `amount`(paise) · `currency` · `status` · `refundedAmount` · `refundIds[]` (gateway refund ids already applied) · `refundingSince` (short lock, 2 min, so two workers never refund the same payment) · `failureReason` · `capturedAt`. Index `{purpose:1,refId:1,_id:-1}`. `purpose/refId` let table and party deposits (Phases 5–6) reuse this collection.
+
+### `paymentevents`
+
+Webhook idempotency: `{eventId (unique), type, createdAt}`, TTL 90 days. If processing throws, the row is deleted so Razorpay's retry is processed.
+
+### `notifications`
+
+In-app inbox: `userId,type,title,body,data,readAt,dedupeKey (unique partial = queue+job id)`. Indexes `{userId:1,_id:-1}` (inbox) · `{userId:1,readAt:1}` (unread badge) · TTL 90 days.
+
+### Redis keys (Phase 3)
+
+| Key                                   | TTL    | Purpose                                                                          |
+| ------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| `idem:<userId>:<method>:<path>:<key>` | 24 h   | Idempotency record `{state: processing/done, body fingerprint, stored response}` |
+| `rider:loc:<orderId>`                 | 10 min | Last rider location for late joiners                                             |
+| `io:*`                                | —      | Socket.io Redis adapter channels                                                 |
+| `bull:<queue>:*`                      | —      | BullMQ queues `notifications`, `notifications-dlq`, `payments`, `maintenance`    |
 
 ## Sharding & archiving strategy (preview; detailed per collection later)
 
