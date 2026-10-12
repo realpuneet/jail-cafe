@@ -58,3 +58,12 @@ export const imagekitService = {
     return Boolean(env.IMAGEKIT_URL_ENDPOINT) && url.startsWith(`${env.IMAGEKIT_URL_ENDPOINT}/`);
   },
 };
+
+/**
+ * Reject images that are not hosted on our ImageKit endpoint; returns only whitelisted fields.
+ * @param {{fileId: string, url: string, filePath: string, thumbnailUrl?: string}} image
+ */
+export function assertOwnImage(image) {
+  if (!imagekitService.isOwnUrl(image.url)) throw ApiError.badRequest('Image url is not allowed');
+  return toStoredImage(image);
+}

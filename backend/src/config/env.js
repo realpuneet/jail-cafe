@@ -88,6 +88,8 @@ export const envSchema = z
     // Cafe
     CAFE_NAME: z.string().default('Jail Ki Chai'),
     DEFAULT_DELIVERY_RADIUS_KM: z.coerce.number().positive().default(7),
+    CAFE_LAT: z.coerce.number().min(-90).max(90).optional(),
+    CAFE_LNG: z.coerce.number().min(-180).max(180).optional(),
     MIN_ORDER_AMOUNT: z.coerce.number().min(0).default(100),
   })
   .superRefine((cfg, ctx) => {

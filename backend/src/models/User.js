@@ -1,15 +1,6 @@
 import mongoose from 'mongoose';
 import { ROLE_VALUES, ROLES } from '../utils/constants.js';
-
-const imageSchema = new mongoose.Schema(
-  {
-    fileId: { type: String, required: true },
-    url: { type: String, required: true },
-    filePath: { type: String, required: true },
-    thumbnailUrl: { type: String },
-  },
-  { _id: false },
-);
+import { imageSchema } from './schemas/image.js';
 
 const userSchema = new mongoose.Schema(
   {

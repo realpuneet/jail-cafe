@@ -154,4 +154,214 @@ export const paths = {
       params: [{ name: 'fileId', in: 'path', required: true, schema: str() }],
     }),
   },
+
+  '/categories': {
+    get: op('Catalog', 'Active categories (cached, public)', { auth: false }),
+    post: op('Catalog', 'Create category', {
+      roles: 'admin',
+      status: '201',
+      body: obj({ name: str(), description: str(), image, sortOrder: { type: 'integer' } }, [
+        'name',
+      ]),
+    }),
+  },
+  '/categories/manage': {
+    get: op('Catalog', 'All categories (cursor)', { roles: 'admin, staff', params: cursorParams }),
+  },
+  '/categories/{id}': {
+    patch: op('Catalog', 'Update category', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ name: str(), isActive: { type: 'boolean' } }),
+    }),
+    delete: op('Catalog', 'Soft-delete (409 if active items exist)', {
+      roles: 'admin',
+      params: [idParam],
+    }),
+  },
+  '/menu-items': {
+    get: op('Catalog', 'Public menu (cached). Prices in paise', {
+      auth: false,
+      params: [
+        { name: 'category', in: 'query', schema: str() },
+        { name: 'veg', in: 'query', schema: str({ enum: ['true', 'false'] }) },
+        { name: 'available', in: 'query', schema: str({ enum: ['true', 'false'] }) },
+        {
+          name: 'q',
+          in: 'query',
+          description: 'Text search (max 50 results, uncached)',
+          schema: str(),
+        },
+      ],
+    }),
+    post: op('Catalog', 'Create menu item', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          name: str(),
+          categoryId: str(),
+          isVeg: { type: 'boolean' },
+          price: { type: 'integer', description: 'paise' },
+          mrp: { type: 'integer' },
+          image,
+          variants: {
+            type: 'array',
+            maxItems: 10,
+            items: obj({ name: str(), price: { type: 'integer' } }),
+          },
+          addOns: {
+            type: 'array',
+            maxItems: 20,
+            items: obj({ name: str(), price: { type: 'integer' }, isVeg: { type: 'boolean' } }),
+          },
+        },
+        ['name', 'categoryId', 'isVeg', 'price'],
+      ),
+    }),
+  },
+  '/menu-items/manage': {
+    get: op('Catalog', 'All items incl. inactive (cursor)', {
+      roles: 'admin, staff',
+      params: cursorParams,
+    }),
+  },
+  '/menu-items/{idOrSlug}': {
+    get: op('Catalog', 'Item detail by id or slug (cached)', {
+      auth: false,
+      params: [{ name: 'idOrSlug', in: 'path', required: true, schema: str() }],
+    }),
+  },
+  '/menu-items/{id}': {
+    patch: op('Catalog', 'Update item', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ price: { type: 'integer' } }),
+    }),
+    delete: op('Catalog', 'Soft-delete item', { roles: 'admin', params: [idParam] }),
+  },
+  '/menu-items/{id}/availability': {
+    patch: op('Catalog', 'Stock on/off', {
+      roles: 'admin, staff',
+      params: [idParam],
+      body: obj({ isAvailable: { type: 'boolean' } }, ['isAvailable']),
+    }),
+  },
+  '/banners': {
+    get: op('Catalog', 'Live banners (schedule applied at serve time)', {
+      auth: false,
+      params: [
+        {
+          name: 'position',
+          in: 'query',
+          schema: str({ enum: ['home_hero', 'home_secondary', 'menu', 'party'] }),
+        },
+      ],
+    }),
+    post: op('Catalog', 'Create banner', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          title: str(),
+          image,
+          position: str(),
+          startsAt: str({ format: 'date-time' }),
+          endsAt: str({ format: 'date-time' }),
+        },
+        ['title', 'image'],
+      ),
+    }),
+  },
+  '/banners/manage': {
+    get: op('Catalog', 'All banners (cursor)', { roles: 'admin, staff', params: cursorParams }),
+  },
+  '/banners/{id}': {
+    patch: op('Catalog', 'Update banner', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ title: str() }),
+    }),
+    delete: op('Catalog', 'Delete banner', { roles: 'admin', params: [idParam] }),
+  },
+  '/delivery-zones': {
+    get: op('Delivery', 'Coverage list (cached)', { auth: false }),
+    post: op('Delivery', 'Create zone (pincode or distance)', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          name: str(),
+          kind: str({ enum: ['pincode', 'distance'] }),
+          pincodes: { type: 'array', items: str() },
+          minKm: { type: 'number' },
+          maxKm: { type: 'number' },
+          deliveryCharge: { type: 'integer' },
+          freeDeliveryAbove: { type: 'integer' },
+        },
+        ['name', 'kind', 'deliveryCharge'],
+      ),
+    }),
+  },
+  '/delivery-zones/quote': {
+    post: op('Delivery', 'Delivery charge for a pincode or lat/lng (422 if not serviceable)', {
+      auth: false,
+      body: obj(
+        {
+          pincode: str(),
+          lat: { type: 'number' },
+          lng: { type: 'number' },
+          subtotal: { type: 'integer' },
+        },
+        ['subtotal'],
+      ),
+    }),
+  },
+  '/delivery-zones/manage': { get: op('Delivery', 'All zones', { roles: 'admin, staff' }) },
+  '/delivery-zones/{id}': {
+    patch: op('Delivery', 'Update zone', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ deliveryCharge: { type: 'integer' } }),
+    }),
+    delete: op('Delivery', 'Deactivate zone', { roles: 'admin', params: [idParam] }),
+  },
+  '/coupons': {
+    get: op('Coupons', 'Public live offers (cached)', { auth: false }),
+    post: op('Coupons', 'Create coupon', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          code: str(),
+          type: str({ enum: ['percent', 'flat'] }),
+          value: { type: 'integer' },
+          maxDiscount: { type: 'integer' },
+          minOrderAmount: { type: 'integer' },
+          startsAt: str({ format: 'date-time' }),
+          expiresAt: str({ format: 'date-time' }),
+          usageLimit: { type: 'integer' },
+          perUserLimit: { type: 'integer' },
+          isPublic: { type: 'boolean' },
+        },
+        ['code', 'type', 'value'],
+      ),
+    }),
+  },
+  '/coupons/validate': {
+    post: op('Coupons', 'Check a code against a cart subtotal (paise)', {
+      body: obj({ code: str(), subtotal: { type: 'integer' } }, ['code', 'subtotal']),
+    }),
+  },
+  '/coupons/manage': {
+    get: op('Coupons', 'All coupons (cursor)', { roles: 'admin', params: cursorParams }),
+  },
+  '/coupons/{id}': {
+    patch: op('Coupons', 'Update coupon', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ isActive: { type: 'boolean' } }),
+    }),
+    delete: op('Coupons', 'Deactivate coupon', { roles: 'admin', params: [idParam] }),
+  },
 };

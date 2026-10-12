@@ -68,7 +68,7 @@ export async function rotateRefreshToken(refreshToken, meta = {}) {
   const claimed = await RefreshToken.findOneAndUpdate(
     { jti: payload.jti, revokedAt: { $exists: false } },
     { $set: { revokedAt: new Date() } },
-    { new: false },
+    { returnDocument: 'before' },
   ).lean();
 
   if (!claimed) {

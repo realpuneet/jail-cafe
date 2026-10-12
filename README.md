@@ -2,7 +2,7 @@
 
 Food ordering + table booking + party booking + admin/staff/rider panels for the cafe **Jail Ki Chai**, built to scale to 1 Cr+ registered users.
 
-> **Status:** Phase 0–1 complete (scaffold + auth/users/addresses/uploads). See [Roadmap](#roadmap).
+> **Status:** Phase 0–2 complete (scaffold, auth/users/addresses/uploads, catalog + caching). See [Roadmap](#roadmap).
 
 ## Features (target)
 
@@ -88,6 +88,7 @@ Seed (`npm run seed`) and the frontend scripts arrive in later phases.
 - Auth: `POST /auth/otp/request` → `/auth/otp/verify` (access token in body, rotating refresh token in an httpOnly cookie) · `/auth/refresh` · `/auth/logout` · `/auth/login` (admin/staff/rider email+password)
 - `GET/PATCH /users/me`, `PUT /users/me/avatar`; admin: `GET/POST /users`, `PATCH /users/:id/role|status`
 - `/addresses` CRUD + `PUT /addresses/:id/default`; `GET /uploads/auth` (ImageKit signature)
+- Catalog (public, cached): `GET /categories`, `GET /menu-items?category&veg&available&q`, `GET /menu-items/:idOrSlug`, `GET /banners?position`, `GET /delivery-zones`, `POST /delivery-zones/quote`, `GET /coupons`; `POST /coupons/validate` (auth). Admin/staff write endpoints and `/…/manage` lists are documented in Swagger. **All prices are integer paise.**
 - Probes: `GET /health` (liveness), `GET /ready` (Mongo + Redis; 503 while shutting down)
 - Response envelope: `{ success, message, data, meta }`; errors: `{ success:false, message, code, details, requestId }`
 
@@ -123,5 +124,5 @@ Prettier + ESLint enforced by a Husky pre-commit (lint-staged). Enums/constants 
 
 - [x] **Phase 0** scaffold, config, errors, logging, probes, Docker, CI
 - [x] **Phase 1** auth (OTP, JWT rotation + reuse detection, RBAC), users, addresses, ImageKit uploads
-- [ ] Phase 2 catalog + caching · Phase 3 cart/orders/payments/realtime
+- [x] **Phase 2** categories, menu items (variants/add-ons/stock toggle), banners, delivery zones, coupons + versioned Redis cache
 - [ ] Phase 4 frontend foundation · Phase 5 table booking · Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs

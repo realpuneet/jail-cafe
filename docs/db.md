@@ -1,6 +1,6 @@
 # Database Design
 
-> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`).
+> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) and **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`). All money fields are integer **paise**.
 
 ## Conventions
 
@@ -81,6 +81,42 @@ Size ≈ 450 B; ≈ 1–3 per user.
 | `login:fail:<email>` | 15 min                | password-login failure counter (lock at 5)                |
 | `blocked:<userId>`   | access TTL + 60 s     | disabled-user flag checked on every authenticated request |
 | `rl:<name>:<ip>`     | window                | express-rate-limit counters                               |
+
+## Phase 2 collections
+
+### `categories`
+
+Fields: `name`(req ≤60) · `slug`(req, unique) · `description` · `image`{fileId,url,filePath,thumbnailUrl} · `sortOrder`(0) · `isActive`(true).
+Indexes: `{slug:1}` unique (lookup/uniqueness) · `{isActive:1,sortOrder:1}` (public ordered list). Size ≈ 400 B, tens of docs. Cache: `catalog:categories` 300 s.
+
+### `menuitems`
+
+Fields: `name`(req) · `slug`(req, unique) · `description` · `categoryId`(→categories, req) · `isVeg`(req) · `price`(req, paise) · `mrp` · `taxPercent`(5) · `image` · `gallery`(≤4) · `variants`[{_id,name,price,isAvailable}] (≤10) · `addOns`[{_id,name,price,isVeg,isAvailable}] (≤20) · `tags`(≤10) · `prepTimeMinutes`(15) · `sortOrder` · `isAvailable`(true; stock toggle) · `isActive`(true; soft delete).
+Embedded arrays are hard-bounded by validators, so documents stay < ~8 KB (typically 1–2 KB). Variant/add-on `_id`s are what the cart references.
+Indexes: `{slug:1}` unique (detail by slug) · `{categoryId:1,isActive:1,sortOrder:1}` (category page) · `{isActive:1,isVeg:1,sortOrder:1}` (veg filter) · text `{name:10,tags:5,description:1}` (search box) · `{categoryId:1,_id:-1}` (admin list, cursor).
+Cache: `catalog:list:<category>:<veg>:<available>` and `catalog:item:<idOrSlug>` 300 s; text searches are **not** cached (unbounded key space). Public list is capped at 500 items (the catalog is small by design); admin lists are cursor-paginated.
+
+### `banners`
+
+Fields: `title`(req) · `subtitle` · `image`(req) · `linkUrl` (in-app path or https) · `position` (`home_hero|home_secondary|menu|party`) · `sortOrder` · `startsAt`/`endsAt` · `isActive`.
+Index: `{isActive:1,position:1,sortOrder:1}`. Cache: `banners:active` 120 s; the schedule window is applied at serve time, so banners start/stop on time without invalidation.
+
+### `deliveryzones`
+
+Fields: `name` · `kind` (`pincode|distance`) · `pincodes`[≤200] (kind=pincode) · `minKm`/`maxKm` (kind=distance, km from `CAFE_LAT/CAFE_LNG`; range is `(minKm, maxKm]`) · `deliveryCharge`(paise) · `freeDeliveryAbove`(paise) · `minOrderAmount`(paise; falls back to `MIN_ORDER_AMOUNT`×100) · `estimatedMinutes`(40) · `isActive`.
+Indexes: `{pincodes:1,isActive:1}` (multikey) · `{isActive:1,kind:1,minKm:1}`. Resolution: pincode zone first, then distance tier (beyond `DEFAULT_DELIVERY_RADIUS_KM` ⇒ not serviceable). Cache: `zones:active` 600 s; quote math runs in memory.
+
+### `coupons`, `couponredemptions`, `couponusages`
+
+`coupons`: `code`(unique, uppercase) · `type` (`percent|flat`) · `value` (percent 1–100 or paise) · `maxDiscount` · `minOrderAmount` · `startsAt`/`expiresAt` · `usageLimit` · `perUserLimit`(1) · `usedCount` · `isPublic` · `isActive`. Indexes: `{code:1}` unique · `{isActive:1,isPublic:1,expiresAt:1}`.
+`couponredemptions` (one per order; audit + idempotency): `couponId,userId,orderId,discount`; unique `{couponId:1,orderId:1}`.
+`couponusages` (atomic per-user counter): `couponId,userId,count`; unique `{couponId:1,userId:1}` — the redeem transaction upserts with filter `count < perUserLimit`; hitting the limit makes the upsert collide with this unique index.
+Redeem (one transaction): conditional `$inc usedCount` (guards `usageLimit`) → per-user counter → redemption doc; verified with 8-way concurrent tests. Growth: redemptions ≈ orders using coupons; shard by hashed `userId`/archive with orders.
+Cache: `coupons:code:<CODE>` and `coupons:public` 60 s (usage counts are always re-read from the DB before a coupon is applied).
+
+### Cache design (Redis)
+
+Keys are `jkc:cache:<ns>:v<version>:<parts>`; namespaces: `catalog` (categories + menu), `banners`, `zones`, `coupons`. Every admin write calls `invalidate(ns)` which `INCR`s `jkc:cache:ver:<ns>` — O(1), no `SCAN`; stale entries just expire by TTL. Reads are single-flight per process (no stampede) and **fail open** if Redis is down. Public GETs also send `Cache-Control: public, max-age, s-maxage, stale-while-revalidate` + strong ETags (CDN-friendly; worst-case CDN staleness = `s-maxage`).
 
 ## Sharding & archiving strategy (preview; detailed per collection later)
 

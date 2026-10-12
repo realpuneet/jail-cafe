@@ -68,3 +68,15 @@ export const ADDRESS = Object.freeze({
 export const PAGINATION = Object.freeze({ DEFAULT_LIMIT: 20, MAX_LIMIT: 100 });
 
 export const UPLOAD_FOLDERS = Object.freeze(['avatars', 'menu', 'banners', 'party', 'misc']);
+
+export const CACHE_TTL = Object.freeze({
+  CATALOG: 300,
+  BANNERS: 120,
+  ZONES: 600,
+  COUPONS: 60,
+});
+
+export const BANNER_POSITIONS = Object.freeze(['home_hero', 'home_secondary', 'menu', 'party']);
+export const DISCOUNT_TYPES = Object.freeze({ PERCENT: 'percent', FLAT: 'flat' });
+export const ZONE_KINDS = Object.freeze({ PINCODE: 'pincode', DISTANCE: 'distance' });
+export const MAX_PUBLIC_MENU_ITEMS = 500;

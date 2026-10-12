@@ -3,6 +3,13 @@ import authRoutes from './auth.routes.js';
 import userRoutes from './user.routes.js';
 import addressRoutes from './address.routes.js';
 import uploadRoutes from './upload.routes.js';
+import {
+  bannerRoutes,
+  categoryRoutes,
+  couponRoutes,
+  menuRoutes,
+  zoneRoutes,
+} from './catalog.routes.js';
 
 /** Versioned API router (mounted at API_PREFIX). Feature routers are registered per phase. */
 export function apiRouter() {
@@ -11,5 +18,10 @@ export function apiRouter() {
   router.use('/users', userRoutes);
   router.use('/addresses', addressRoutes);
   router.use('/uploads', uploadRoutes);
+  router.use('/categories', categoryRoutes);
+  router.use('/menu-items', menuRoutes);
+  router.use('/banners', bannerRoutes);
+  router.use('/delivery-zones', zoneRoutes);
+  router.use('/coupons', couponRoutes);
   return router;
 }
