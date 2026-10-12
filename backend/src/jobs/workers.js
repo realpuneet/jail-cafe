@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { createRedisConnection } from '../config/redis.js';
 import { processNotification } from '../services/notification.service.js';
 import { expireOverdueHolds, sendReminder } from '../services/tableBooking.service.js';
+import { expireOverdue as expireOverdueParties } from '../services/partyInquiry.service.js';
 import { expireUnpaidOrders } from '../services/order.service.js';
 import { refundPayment } from '../services/payment.service.js';
 import { JOBS, ORDER, QUEUES } from '../utils/constants.js';
@@ -17,6 +18,7 @@ const handlers = {
   },
   [QUEUES.REMINDERS]: { [JOBS.BOOKING_REMINDER]: (job) => sendReminder(job.data.bookingId) },
   [QUEUES.MAINTENANCE]: {
+    [JOBS.EXPIRE_PARTY_HOLDS]: async () => ({ expired: await expireOverdueParties() }),
     [JOBS.EXPIRE_BOOKING_HOLDS]: async () => ({ expired: await expireOverdueHolds() }),
     [JOBS.EXPIRE_UNPAID_ORDERS]: async () => ({
       cancelled: await expireUnpaidOrders(ORDER.UNPAID_EXPIRY_MINUTES),
@@ -96,6 +98,12 @@ export async function startWorkers() {
     JOBS.EXPIRE_BOOKING_HOLDS,
     { every: 60 * 1000 },
     { name: JOBS.EXPIRE_BOOKING_HOLDS, opts: { ...DEFAULT_JOB_OPTIONS, attempts: 2 } },
+  );
+
+  await getQueue(QUEUES.MAINTENANCE).upsertJobScheduler(
+    JOBS.EXPIRE_PARTY_HOLDS,
+    { every: 5 * 60 * 1000 },
+    { name: JOBS.EXPIRE_PARTY_HOLDS, opts: { ...DEFAULT_JOB_OPTIONS, attempts: 2 } },
   );
 
   logger.info({ queues: workers.length }, 'workers started');

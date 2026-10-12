@@ -11,6 +11,7 @@ import {
   zoneRoutes,
 } from './catalog.routes.js';
 import { bookingRoutes, slotRoutes } from './booking.routes.js';
+import { inquiryRoutes, packageRoutes } from './party.routes.js';
 import { cartRoutes, notificationRoutes, orderRoutes, paymentRoutes } from './order.routes.js';
 
 /** Versioned API router (mounted at API_PREFIX). Feature routers are registered per phase. */
@@ -31,5 +32,7 @@ export function apiRouter() {
   router.use('/notifications', notificationRoutes);
   router.use('/booking-slots', slotRoutes);
   router.use('/table-bookings', bookingRoutes);
+  router.use('/party-packages', packageRoutes);
+  router.use('/party-inquiries', inquiryRoutes);
   return router;
 }

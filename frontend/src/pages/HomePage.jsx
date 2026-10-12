@@ -178,9 +178,14 @@ export default function HomePage() {
               confirmation.
             </p>
             <div className="mt-6">
-              <Button to="/book-table" variant="accent" size="lg">
-                Book a table
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button to="/book-table" variant="accent" size="lg">
+                  Book a table
+                </Button>
+                <Button to="/party" variant="outline" size="lg" className="text-chai-50">
+                  Plan a party
+                </Button>
+              </div>
             </div>
           </div>
         </Reveal>

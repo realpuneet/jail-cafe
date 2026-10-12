@@ -17,3 +17,5 @@ process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
 process.env.RAZORPAY_KEY_SECRET = 'rzp_test_secret_value';
 process.env.RAZORPAY_WEBHOOK_SECRET = 'whsec_test_value';
 process.env.REDIS_URL = process.env.REDIS_TEST_URL ?? process.env.REDIS_URL;
+// Isolate from any dev server / other test run sharing the same Redis (queues, caches, limits).
+process.env.REDIS_KEY_PREFIX = `jkctest${process.pid}:`;

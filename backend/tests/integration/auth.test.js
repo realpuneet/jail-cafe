@@ -57,7 +57,7 @@ describe('OTP login', () => {
     const { user } = await loginCustomer(app, codes, '9876543210', redis);
     await User.updateOne({ _id: user._id }, { isActive: false });
     await request(app).post(api('/auth/otp/request')).send({ phone: '9876543210' }).expect(429); // cooldown
-    await redis.del('jkc:otp:cool:+919876543210');
+    await redis.del(`${process.env.REDIS_KEY_PREFIX}otp:cool:+919876543210`);
     await request(app).post(api('/auth/otp/request')).send({ phone: '9876543210' }).expect(200);
     await request(app)
       .post(api('/auth/otp/verify'))

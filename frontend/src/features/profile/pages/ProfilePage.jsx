@@ -61,6 +61,9 @@ export default function ProfilePage() {
         <Link to="/bookings" className="card p-4 font-bold hover:shadow-lg">
           🪑 My bookings
         </Link>
+        <Link to="/party/inquiries" className="card p-4 font-bold hover:shadow-lg">
+          🎉 My parties
+        </Link>
         <Link to="/notifications" className="card col-span-2 p-4 font-bold hover:shadow-lg">
           🔔 Notifications
         </Link>

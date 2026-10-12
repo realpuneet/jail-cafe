@@ -1,6 +1,6 @@
 # Database Design
 
-> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`) and **Phase 5** (`bookingslots`, `slotinventories`, `tablebookings`). All money fields are integer **paise**.
+> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`) **Phase 5** (`bookingslots`, `slotinventories`, `tablebookings`) and **Phase 6** (`partypackages`, `partyinquiries`, `partydays`). All money fields are integer **paise**.
 
 ## Conventions
 
@@ -187,6 +187,29 @@ Size ≈ 700 B. Deposits reuse `payments` with `purpose: "booking"`. Archive boo
 ### Jobs & realtime (Phase 5)
 
 `maintenance` queue: `expire-booking-holds` every minute. `reminders` queue: delayed `booking-reminder` (2 h before start, `jobId reminder-<id>`; the handler re-checks the booking is still confirmed, and cancel removes it). Socket events to the `staff` room: `booking:new`, `booking:update`.
+
+## Phase 6 collections (party booking)
+
+**Inquiry state machine** (`partyinquiries.status`): `SUBMITTED → QUOTED → ACCEPTED → CONFIRMED → COMPLETED`. Side exits: `QUOTED → DECLINED` (customer), `SUBMITTED|QUOTED|ACCEPTED → CLOSED` (admin cannot host), any open or confirmed state `→ CANCELLED`, `ACCEPTED → EXPIRED` (token not paid within 24 h) and `QUOTED → EXPIRED` (quote validity lapsed, default 3 days). An admin can re-quote while `SUBMITTED`/`QUOTED` (`quote.version` increments). `statusHistory` is the customer-visible timeline.
+
+**Date reservation.** Accepting a quote takes one of the day's party slots (`PARTY_MAX_PER_DAY`, default 2) in the same transaction that flips the inquiry to `ACCEPTED`, using the same atomic conditional-`$inc` pattern as table seats (`partydays`). Full day ⇒ 409 and the transaction rolls back (the inquiry stays `QUOTED`). Declining, closing, cancelling and expiry release the slot atomically (`dateReserved` mirrors it). Tested with 5 concurrent accepts against 2 slots ⇒ exactly 2 succeed.
+
+**Money.** All amounts are paise. `quote.amount` is the total, `quote.tokenAmount` (default 25 %, min ₹1) is the advance paid via Razorpay (`payments.purpose = "party"`). Cancelling a confirmed party at least 7 days ahead refunds the token; inside 7 days customers must call, staff can cancel with or without refund. A token captured after the window lapsed is refunded automatically.
+
+### `partypackages`
+
+`name`, `slug` (unique), `type` (`birthday|kitty|anniversary|corporate|other`), `tagline`, `description`, `image`, `pricePerGuest` (paise, "from"), `minGuests`, `maxGuests`, `durationHours`, `inclusions[]` (≤ 20), `sortOrder`, `isActive`. Indexes `{slug:1}` unique, `{isActive:1,sortOrder:1}`. Cached under the `catalog` namespace (`party`, `party-item`). Dozens of docs.
+
+### `partyinquiries`
+
+`inquiryNumber` (`PI-YYMMDD-0001`, unique) · `userId` · `packageId` + `package{name,type,pricePerGuest}` snapshot · `eventType` · `eventDate` (IST) · `startTime` · `guests` · contact `name/phone/email` · `requirements` · `status` · `quote{amount,tokenAmount,validUntil,notes,quotedBy,quotedAt,version}` · `token{amount,status,dueAt}` · `dateReserved` · `idempotencyKey` · `closeReason` · `statusHistory[]` (≤ ~12).
+Indexes: `{inquiryNumber:1}` unique · `{userId:1,_id:-1}` (mine) · `{status:1,createdAt:1}` (admin inbox) · `{eventDate:1,status:1}` (event calendar) · `{token.dueAt:1}` partial on `ACCEPTED` and `{quote.validUntil:1}` partial on `QUOTED` (expiry job) · `{userId:1,idempotencyKey:1}` unique partial. At most 5 open inquiries per user. Size ≈ 1.5 KB.
+
+### `partydays`
+
+`{date, booked, capacity, expiresAt}`; unique `{date:1}` (the atomic counter), TTL on `expiresAt` (date + 30 days).
+
+Jobs: `maintenance` → `expire-party-holds` every 5 min. Socket events to the `staff` room: `party:new`, `party:update`.
 
 ## Sharding & archiving strategy (preview; detailed per collection later)
 

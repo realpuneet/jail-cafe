@@ -194,6 +194,55 @@ try {
   await page.waitForTimeout(600);
   assert((await page.getByText(/seats left/).count()) >= 1, 'live seat counts shown');
 
+  console.log('Party booking');
+  await page.goto(`${BASE}/party`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Our packages' }).waitFor();
+  assert((await page.locator('article').count()) >= 4, 'party packages listed');
+  await page.screenshot({ path: `${SHOTS}/15-party.png`, fullPage: false });
+  await page
+    .locator('article', { hasText: 'Birthday Bash' })
+    .getByRole('button', { name: 'Get quote' })
+    .click();
+  await page.getByRole('heading', { name: /Enquire about Birthday Bash/ }).waitFor();
+  const eventDate = new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10);
+  await page.getByLabel('Date').fill(eventDate);
+  await page.getByLabel('Number of guests').fill('25');
+  await page.getByLabel(/Anything we should know/).fill('Chai-themed decor please');
+  await page.screenshot({ path: `${SHOTS}/16-party-form.png` });
+  await page.getByRole('button', { name: 'Request a quote' }).click();
+  await page.waitForURL('**/party/inquiries/*');
+  await page.getByRole('heading', { name: /^PI-\d{6}-\d{4}$/ }).waitFor();
+  assert(true, 'inquiry number shown');
+  const inquiryId = page.url().match(/inquiries\/([a-f0-9]{24})/)[1];
+  await page.getByText(/send a quote soon/i).waitFor();
+
+  const staffHeaders = {
+    Authorization: `Bearer ${(await (await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: process.env.E2E_ADMIN_EMAIL, password: process.env.E2E_ADMIN_PASSWORD }) })).json()).data.accessToken}`,
+    'content-type': 'application/json',
+  };
+  const quoted = await (
+    await fetch(`${API}/party-inquiries/${inquiryId}/quote`, {
+      method: 'PATCH',
+      headers: staffHeaders,
+      body: JSON.stringify({ amount: 1250000, notes: 'Includes decor and cake table' }),
+    })
+  ).json();
+  assert(quoted.success, 'admin sent a quote');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Your quote' }).waitFor();
+  assert(await page.getByText('₹12,500').isVisible(), 'quote amount shown');
+  await page.screenshot({ path: `${SHOTS}/17-party-quote.png` });
+  await page.getByRole('button', { name: /accept/i }).click();
+  await page.getByText(/is reserved for you/i).waitFor();
+  assert(
+    await page.getByRole('button', { name: /pay token/i }).isVisible(),
+    'token payment offered after accepting',
+  );
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${SHOTS}/18-party-accepted.png` });
+  await page.goto(`${BASE}/party/inquiries`, { waitUntil: 'networkidle' });
+  assert(await page.getByText('Awaiting token').isVisible(), 'inquiry listed with its status');
+
   console.log('My orders + profile');
   await page.goto(`${BASE}/orders`, { waitUntil: 'networkidle' });
   assert(await page.getByText(orderNumber).isVisible(), 'order appears in history');

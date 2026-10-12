@@ -137,6 +137,7 @@ export const JOBS = Object.freeze({
   REFUND_PAYMENT: 'refund-payment',
   EXPIRE_UNPAID_ORDERS: 'expire-unpaid-orders',
   EXPIRE_BOOKING_HOLDS: 'expire-booking-holds',
+  EXPIRE_PARTY_HOLDS: 'expire-party-holds',
   BOOKING_REMINDER: 'booking-reminder',
 });
 
@@ -148,6 +149,8 @@ export const SOCKET_EVENTS = Object.freeze({
   NOTIFICATION: 'notification:new',
   BOOKING_NEW: 'booking:new',
   BOOKING_UPDATE: 'booking:update',
+  PARTY_NEW: 'party:new',
+  PARTY_UPDATE: 'party:update',
 });
 
 export const BOOKING_STATUS = Object.freeze({
@@ -173,4 +176,33 @@ export const DEPOSIT_STATUS = Object.freeze({
   PAID: 'paid',
   REFUNDED: 'refunded',
   PARTIALLY_REFUNDED: 'partially_refunded',
+});
+
+export const PARTY_STATUS = Object.freeze({
+  SUBMITTED: 'SUBMITTED', // inquiry received, waiting for an admin quote
+  QUOTED: 'QUOTED', // quote sent, waiting for the customer
+  ACCEPTED: 'ACCEPTED', // customer accepted; date reserved, token payment pending
+  CONFIRMED: 'CONFIRMED', // token paid
+  DECLINED: 'DECLINED', // customer declined the quote
+  CLOSED: 'CLOSED', // admin could not take it
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED', // quote or token window lapsed
+  COMPLETED: 'COMPLETED',
+});
+export const PARTY_STATUS_VALUES = Object.freeze(Object.values(PARTY_STATUS));
+export const PARTY_TYPES = Object.freeze([
+  'birthday',
+  'kitty',
+  'anniversary',
+  'corporate',
+  'other',
+]);
+export const PARTY = Object.freeze({
+  MIN_LEAD_DAYS: 3,
+  MAX_ADVANCE_DAYS: 365,
+  QUOTE_VALID_DAYS: 3,
+  TOKEN_DUE_HOURS: 24,
+  FULL_REFUND_DAYS: 7, // customers get the token back when cancelling at least this many days ahead
+  MAX_OPEN_PER_USER: 5,
+  DEFAULT_TOKEN_PERCENT: 25,
 });

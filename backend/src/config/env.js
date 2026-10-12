@@ -95,6 +95,7 @@ export const envSchema = z
     DEFAULT_DELIVERY_RADIUS_KM: z.coerce.number().positive().default(7),
     CAFE_LAT: z.coerce.number().min(-90).max(90).optional(),
     CAFE_LNG: z.coerce.number().min(-180).max(180).optional(),
+    PARTY_MAX_PER_DAY: z.coerce.number().int().min(1).default(2),
     MIN_ORDER_AMOUNT: z.coerce.number().min(0).default(100),
   })
   .superRefine((cfg, ctx) => {

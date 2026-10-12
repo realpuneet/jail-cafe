@@ -17,6 +17,11 @@ const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage.jsx
 const BookTablePage = lazy(() => import('../features/booking/pages/BookTablePage.jsx'));
 const BookingDetailPage = lazy(() => import('../features/booking/pages/BookingDetailPage.jsx'));
 const MyBookingsPage = lazy(() => import('../features/booking/pages/MyBookingsPage.jsx'));
+const PartyPage = lazy(() => import('../features/party/pages/PartyPage.jsx'));
+const MyPartyInquiriesPage = lazy(() => import('../features/party/pages/MyPartyInquiriesPage.jsx'));
+const PartyInquiryDetailPage = lazy(
+  () => import('../features/party/pages/PartyInquiryDetailPage.jsx'),
+);
 const NotificationsPage = lazy(() => import('../features/notifications/NotificationsPage.jsx'));
 
 export default function App() {
@@ -28,6 +33,7 @@ export default function App() {
         <Route path="menu/:slug" element={<ItemDetailPage />} />
         <Route path="cart" element={<CartPage />} />
         <Route path="book-table" element={<BookTablePage />} />
+        <Route path="party" element={<PartyPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="checkout" element={<CheckoutPage />} />
@@ -35,6 +41,8 @@ export default function App() {
           <Route path="orders/:id" element={<OrderTrackingPage />} />
           <Route path="bookings" element={<MyBookingsPage />} />
           <Route path="bookings/:id" element={<BookingDetailPage />} />
+          <Route path="party/inquiries" element={<MyPartyInquiriesPage />} />
+          <Route path="party/inquiries/:id" element={<PartyInquiryDetailPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>

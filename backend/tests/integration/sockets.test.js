@@ -95,7 +95,7 @@ describe('socket auth', () => {
     await open(token); // ok
     const redis = new FakeRedis();
     setRedisClient(redis);
-    await redis.set(`jkc:blocked:${user._id}`, '1');
+    await redis.set(`${process.env.REDIS_KEY_PREFIX}blocked:${user._id}`, '1');
     await expect(open(token)).rejects.toThrow(/forbidden/);
   });
 });

@@ -35,12 +35,14 @@ d('BullMQ workers (real Redis)', () => {
   afterAll(async () => {
     await closeWorkers?.();
     await closeQueues();
+    const left = await raw.keys(`${process.env.REDIS_KEY_PREFIX}*`);
+    if (left.length) await raw.del(...left);
     await raw.quit();
     await stopDb();
   });
   beforeEach(async () => {
     await clearDb();
-    const keys = await raw.keys('jkc:bull*');
+    const keys = await raw.keys(`${process.env.REDIS_KEY_PREFIX}*`);
     if (keys.length) await raw.del(...keys);
     whatsappService.sendText = async () => true;
     closeWorkers = await startWorkers();

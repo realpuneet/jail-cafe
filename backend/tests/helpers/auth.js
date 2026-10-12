@@ -17,7 +17,7 @@ export const cookieOf = (res) =>
 
 /** Full OTP login; returns { accessToken, cookie, user }. */
 export async function loginCustomer(app, codes, phone = '9876543210', redis) {
-  await redis?.del(`jkc:otp:cool:+91${phone}`);
+  await redis?.del(`${process.env.REDIS_KEY_PREFIX}otp:cool:+91${phone}`);
   await request(app).post('/api/v1/auth/otp/request').send({ phone }).expect(200);
   const res = await request(app)
     .post('/api/v1/auth/otp/verify')

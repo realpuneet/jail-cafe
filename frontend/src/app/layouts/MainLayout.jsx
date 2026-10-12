@@ -95,6 +95,9 @@ function Header() {
           <NavLink to="/book-table" className={navCls}>
             Book a table
           </NavLink>
+          <NavLink to="/party" className={navCls}>
+            Parties
+          </NavLink>
           {authed && (
             <NavLink to="/orders" className={navCls}>
               My orders
@@ -212,6 +215,11 @@ function Footer() {
             <li>
               <Link className="hover:underline" to="/book-table">
                 Book a table
+              </Link>
+            </li>
+            <li>
+              <Link className="hover:underline" to="/party">
+                Party booking
               </Link>
             </li>
             <li>

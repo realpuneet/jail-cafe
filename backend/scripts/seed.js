@@ -5,6 +5,7 @@ import { BookingSlot } from '../src/models/BookingSlot.js';
 import { Coupon } from '../src/models/Coupon.js';
 import { DeliveryZone } from '../src/models/DeliveryZone.js';
 import { MenuItem } from '../src/models/MenuItem.js';
+import { PartyPackage } from '../src/models/PartyPackage.js';
 import { User } from '../src/models/User.js';
 import { slugify } from '../src/utils/slugify.js';
 import { hashPassword } from '../src/services/auth.service.js';
@@ -165,6 +166,62 @@ async function seedSlots() {
   console.log('booking slots seeded');
 }
 
+async function seedPackages() {
+  const pkgs = [
+    {
+      name: 'Birthday Bash',
+      type: 'birthday',
+      tagline: 'Cake, chai and chaos',
+      pricePerGuest: 45000,
+      minGuests: 10,
+      maxGuests: 60,
+      durationHours: 3,
+      inclusions: ['Decor and balloons', 'Snacks and chai counter', 'Cake table', 'Music system'],
+      sortOrder: 1,
+    },
+    {
+      name: 'Kitty Party',
+      type: 'kitty',
+      tagline: 'Gossip over chai',
+      pricePerGuest: 38000,
+      minGuests: 8,
+      maxGuests: 40,
+      durationHours: 3,
+      inclusions: ['Snacks platter', 'Chai and coffee', 'Games corner'],
+      sortOrder: 2,
+    },
+    {
+      name: 'Anniversary Dinner',
+      type: 'anniversary',
+      tagline: 'A private cell for two (or twenty)',
+      pricePerGuest: 65000,
+      minGuests: 2,
+      maxGuests: 30,
+      durationHours: 3,
+      inclusions: ['Candle-lit table', 'Welcome drinks', 'Dessert'],
+      sortOrder: 3,
+    },
+    {
+      name: 'Corporate Lunch',
+      type: 'corporate',
+      tagline: 'Team out on parole',
+      pricePerGuest: 55000,
+      minGuests: 15,
+      maxGuests: 100,
+      durationHours: 2,
+      inclusions: ['Buffet lunch', 'Projector and screen', 'Chai breaks'],
+      sortOrder: 4,
+    },
+  ];
+  for (const p of pkgs)
+    await PartyPackage.updateOne(
+      { slug: slugify(p.name) },
+      { $setOnInsert: { ...p, slug: slugify(p.name) } },
+      { upsert: true },
+    );
+  console.log('party packages seeded');
+}
+
 await mongoose.connect(env.MONGO_URI, { dbName: env.MONGO_DB_NAME });
 try {
   await User.init();
@@ -173,6 +230,7 @@ try {
   await seedCatalog();
   await seedZonesAndCoupons();
   await seedSlots();
+  await seedPackages();
 } finally {
   await mongoose.disconnect();
 }

@@ -621,4 +621,136 @@ export const paths = {
       body: obj({ status: str({ enum: ['COMPLETED', 'NO_SHOW'] }) }, ['status']),
     }),
   },
+
+  '/party-packages': {
+    get: op('Party', 'Active packages (cached)', {
+      auth: false,
+      params: [
+        {
+          name: 'type',
+          in: 'query',
+          schema: str({ enum: ['birthday', 'kitty', 'anniversary', 'corporate', 'other'] }),
+        },
+      ],
+    }),
+    post: op('Party', 'Create package', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          name: str(),
+          type: str(),
+          pricePerGuest: { type: 'integer', description: 'paise' },
+          minGuests: { type: 'integer' },
+          maxGuests: { type: 'integer' },
+          inclusions: { type: 'array', items: str() },
+        },
+        ['name', 'pricePerGuest'],
+      ),
+    }),
+  },
+  '/party-packages/manage': {
+    get: op('Party', 'All packages (cursor)', { roles: 'admin, staff', params: cursorParams }),
+  },
+  '/party-packages/{slug}': {
+    get: op('Party', 'Package by slug', {
+      auth: false,
+      params: [{ name: 'slug', in: 'path', required: true, schema: str() }],
+    }),
+  },
+  '/party-packages/{id}': {
+    patch: op('Party', 'Update package', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ pricePerGuest: { type: 'integer' } }),
+    }),
+    delete: op('Party', 'Disable package', { roles: 'admin', params: [idParam] }),
+  },
+  '/party-inquiries': {
+    get: op('Party', 'My inquiries (cursor)', { params: cursorParams }),
+    post: op('Party', 'Submit an inquiry (needs >= 3 days notice)', {
+      status: '201',
+      params: [
+        { name: 'Idempotency-Key', in: 'header', required: true, schema: str({ minLength: 8 }) },
+      ],
+      body: obj(
+        {
+          packageId: str(),
+          eventType: str(),
+          eventDate: str(),
+          startTime: str(),
+          guests: { type: 'integer' },
+          name: str(),
+          phone: str(),
+          email: str(),
+          requirements: str(),
+        },
+        ['eventDate', 'guests'],
+      ),
+    }),
+  },
+  '/party-inquiries/manage': {
+    get: op('Party', 'Admin inbox', {
+      roles: 'admin, staff',
+      params: [
+        ...cursorParams,
+        { name: 'status', in: 'query', schema: str() },
+        { name: 'from', in: 'query', schema: str() },
+        { name: 'to', in: 'query', schema: str() },
+      ],
+    }),
+  },
+  '/party-inquiries/{id}': {
+    get: op('Party', 'Inquiry with status timeline', { params: [idParam] }),
+  },
+  '/party-inquiries/{id}/quote': {
+    patch: op('Party', 'Send / revise a quote (SUBMITTED or QUOTED)', {
+      roles: 'admin, staff',
+      params: [idParam],
+      body: obj(
+        {
+          amount: { type: 'integer' },
+          tokenAmount: { type: 'integer' },
+          validDays: { type: 'integer' },
+          notes: str(),
+        },
+        ['amount'],
+      ),
+    }),
+  },
+  '/party-inquiries/{id}/accept': {
+    post: op(
+      'Party',
+      'Customer accepts the quote: reserves the date atomically, token due in 24 h',
+      { params: [idParam] },
+    ),
+  },
+  '/party-inquiries/{id}/decline': {
+    post: op('Party', 'Customer declines the quote', { params: [idParam] }),
+  },
+  '/party-inquiries/{id}/pay': {
+    post: op('Party', 'Create the Razorpay order for the token (then /payments/razorpay/verify)', {
+      params: [idParam],
+    }),
+  },
+  '/party-inquiries/{id}/cancel': {
+    post: op(
+      'Party',
+      'Cancel. Customers: confirmed parties until 7 days before (token refunded). Staff may choose refund',
+      { params: [idParam], body: obj({ reason: str(), refund: { type: 'boolean' } }) },
+    ),
+  },
+  '/party-inquiries/{id}/close': {
+    post: op('Party', 'Admin cannot host this event', {
+      roles: 'admin, staff',
+      params: [idParam],
+      body: obj({ reason: str() }),
+    }),
+  },
+  '/party-inquiries/{id}/complete': {
+    post: op('Party', 'Mark a confirmed party completed', {
+      roles: 'admin, staff',
+      params: [idParam],
+    }),
+  },
 };
