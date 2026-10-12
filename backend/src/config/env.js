@@ -50,6 +50,7 @@ export const envSchema = z
     JWT_ACCESS_EXPIRES: z.string().default('15m'),
     JWT_REFRESH_EXPIRES: z.string().default('30d'),
     COOKIE_DOMAIN: optional,
+    COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
     OTP_EXPIRES_SECONDS: z.coerce.number().int().min(30).default(300),
     OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(5),
 
@@ -68,6 +69,7 @@ export const envSchema = z
     WHATSAPP_API_URL: optional,
     WHATSAPP_API_TOKEN: optional,
     SMS_API_KEY: optional,
+    SMS_TEMPLATE_ID: optional,
     SMTP_HOST: optional,
     SMTP_PORT: optional,
     SMTP_USER: optional,
@@ -78,6 +80,10 @@ export const envSchema = z
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(900000),
     RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+
+    // Seed (used only by `npm run seed`)
+    SEED_ADMIN_EMAIL: z.string().default('admin@jailkichai.local'),
+    SEED_ADMIN_PASSWORD: optional,
 
     // Cafe
     CAFE_NAME: z.string().default('Jail Ki Chai'),

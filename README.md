@@ -2,7 +2,7 @@
 
 Food ordering + table booking + party booking + admin/staff/rider panels for the cafe **Jail Ki Chai**, built to scale to 1 Cr+ registered users.
 
-> **Status:** Phase 0 complete (scaffold, config, error handling, logging, probes, Docker, CI). See [Roadmap](#roadmap).
+> **Status:** Phase 0–1 complete (scaffold + auth/users/addresses/uploads). See [Roadmap](#roadmap).
 
 ## Features (target)
 
@@ -85,12 +85,15 @@ Seed (`npm run seed`) and the frontend scripts arrive in later phases.
 ## API
 
 - Swagger UI: `http://localhost:5000/api/docs` (JSON: `/api/docs.json`)
+- Auth: `POST /auth/otp/request` → `/auth/otp/verify` (access token in body, rotating refresh token in an httpOnly cookie) · `/auth/refresh` · `/auth/logout` · `/auth/login` (admin/staff/rider email+password)
+- `GET/PATCH /users/me`, `PUT /users/me/avatar`; admin: `GET/POST /users`, `PATCH /users/:id/role|status`
+- `/addresses` CRUD + `PUT /addresses/:id/default`; `GET /uploads/auth` (ImageKit signature)
 - Probes: `GET /health` (liveness), `GET /ready` (Mongo + Redis; 503 while shutting down)
 - Response envelope: `{ success, message, data, meta }`; errors: `{ success:false, message, code, details, requestId }`
 
 ## Testing
 
-`cd backend && npm test`. Unit and integration tests need no external services in Phase 0; later phases add `mongodb-memory-server`.
+`cd backend && npm test`. Integration tests start an in-memory MongoDB **replica set** via `mongodb-memory-server` (first run downloads a `mongod` binary; set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to use a local one) and a fake Redis, so no services are required.
 
 ## Deployment (summary)
 
@@ -119,5 +122,6 @@ Prettier + ESLint enforced by a Husky pre-commit (lint-staged). Enums/constants 
 ## Roadmap
 
 - [x] **Phase 0** scaffold, config, errors, logging, probes, Docker, CI
-- [ ] Phase 1 auth/users/addresses/uploads · Phase 2 catalog + caching · Phase 3 cart/orders/payments/realtime
+- [x] **Phase 1** auth (OTP, JWT rotation + reuse detection, RBAC), users, addresses, ImageKit uploads
+- [ ] Phase 2 catalog + caching · Phase 3 cart/orders/payments/realtime
 - [ ] Phase 4 frontend foundation · Phase 5 table booking · Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs

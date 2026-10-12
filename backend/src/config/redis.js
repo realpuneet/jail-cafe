@@ -18,6 +18,12 @@ export function createRedisConnection(name = 'main') {
 }
 
 let client;
+
+/** Test seam: inject a fake client (never used in production code paths). */
+export function setRedisClient(fake) {
+  client = fake;
+}
+
 /** Lazily created singleton used for cache, rate limits, OTP and sessions. */
 export function getRedis() {
   if (!client) client = createRedisConnection('main');

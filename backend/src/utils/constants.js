@@ -41,3 +41,30 @@ export const ERROR_CODES = Object.freeze({
 });
 
 export const REQUEST_ID_HEADER = 'x-request-id';
+
+export const TOKEN = Object.freeze({
+  REFRESH_COOKIE: 'jkc_rt',
+  ISSUER: 'jail-ki-chai',
+  REUSE_GRACE_SECONDS: 10,
+});
+
+export const OTP = Object.freeze({
+  LENGTH: 6,
+  RESEND_COOLDOWN_SECONDS: 30,
+  MAX_REQUESTS_PER_HOUR: 5,
+  LOCK_SECONDS: 15 * 60,
+});
+
+export const LOGIN = Object.freeze({
+  MAX_FAILURES: 5,
+  LOCK_SECONDS: 15 * 60,
+});
+
+export const ADDRESS = Object.freeze({
+  MAX_PER_USER: 10,
+  LABELS: ['home', 'work', 'other'],
+});
+
+export const PAGINATION = Object.freeze({ DEFAULT_LIMIT: 20, MAX_LIMIT: 100 });
+
+export const UPLOAD_FOLDERS = Object.freeze(['avatars', 'menu', 'banners', 'party', 'misc']);

@@ -15,9 +15,14 @@ export default [
       'prefer-const': 'error',
     },
   },
+  { files: ['scripts/**/*.js'], rules: { 'no-console': 'off' } },
   {
     files: ['tests/**/*.js'],
     ...jest.configs['flat/recommended'],
+    rules: {
+      ...jest.configs['flat/recommended'].rules,
+      'jest/expect-expect': ['warn', { assertFunctionNames: ['expect', 'request.**.expect'] }],
+    },
     languageOptions: { globals: { ...globals.node, ...globals.jest } },
   },
   prettier,

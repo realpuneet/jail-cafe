@@ -72,3 +72,17 @@ describe('app bootstrap', () => {
     expect(res.body.openapi).toBe('3.0.3');
   });
 });
+
+describe('openapi', () => {
+  it('documents the Phase 1 endpoints', async () => {
+    const res = await request(build({})).get('/api/docs.json');
+    expect(Object.keys(res.body.paths)).toEqual(
+      expect.arrayContaining([
+        '/auth/otp/verify',
+        '/users/me',
+        '/addresses/{id}/default',
+        '/uploads/auth',
+      ]),
+    );
+  });
+});
