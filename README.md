@@ -2,7 +2,7 @@
 
 Food ordering + table booking + party booking + admin/staff/rider panels for the cafe **Jail Ki Chai**, built to scale to 1 Cr+ registered users.
 
-> **Status:** Phase 0–3 complete (scaffold, auth, catalog + caching, cart/orders/payments/realtime/notifications). See [Roadmap](#roadmap).
+> **Status:** Phase 0–4 complete (backend through realtime + customer web app foundation). See [Roadmap](#roadmap).
 
 ## Features (target)
 
@@ -41,7 +41,7 @@ DevOps: Docker, docker-compose, PM2 cluster, GitHub Actions, ESLint + Prettier +
 
 ```
 backend/   src/{config,models,routes,controllers,services,repositories,middlewares,validators,jobs,sockets,utils,integrations,docs}, tests/
-frontend/  (Phase 4)
+frontend/  src/{app,components/{ui,common,animations},features/{auth,menu,cart,orders,profile,notifications,ui},hooks,lib,pages,styles}, e2e/, scripts/
 docs/      db.md, environment.md, scaling.md
 docker-compose.yml   .github/workflows/ci.yml
 ```
@@ -129,4 +129,5 @@ Prettier + ESLint enforced by a Husky pre-commit (lint-staged). Enums/constants 
 - [x] **Phase 0** scaffold, config, errors, logging, probes, Docker, CI
 - [x] **Phase 1** auth (OTP, JWT rotation + reuse detection, RBAC), users, addresses, ImageKit uploads
 - [x] **Phase 2** categories, menu items (variants/add-ons/stock toggle), banners, delivery zones, coupons + versioned Redis cache
-- [ ] Phase 4 frontend foundation · Phase 5 table booking · Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs
+- [x] **Phase 4** frontend foundation: design system, Lenis + GSAP, layouts, OTP auth, menu, cart (guest + server, optimistic), checkout + Razorpay, live order tracking, PWA
+- [ ] Phase 5 table booking · Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs

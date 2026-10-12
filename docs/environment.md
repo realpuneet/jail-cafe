@@ -51,6 +51,8 @@ Backend vars are validated by Zod in `backend/src/config/env.js`; the process ex
 | `VITE_RAZORPAY_KEY_ID`                                   | `rzp_live_…`                       | Key id only     |
 | `VITE_APP_NAME`                                          | `Jail Ki Chai`                     |                 |
 
+Notes: Vite inlines `VITE_*` at **build** time, so rebuild when they change. `VITE_SOCKET_URL` must be the API origin (no path). Razorpay Checkout is loaded on demand from `checkout.razorpay.com`; the browser needs the key id only.
+
 ## Generating secrets
 
 ```bash

@@ -10,3 +10,4 @@ logs/
 .DS_Store
 .vscode/
 .idea/
+e2e/screenshots/
