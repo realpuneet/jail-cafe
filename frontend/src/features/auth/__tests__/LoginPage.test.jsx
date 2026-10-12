@@ -79,3 +79,19 @@ describe('LoginPage', () => {
     expect(useAuthStore.getState().status).toBe('guest');
   });
 });
+
+describe('startSession ordering', () => {
+  it('merges the guest cart before the store becomes authenticated', async () => {
+    const { mergeGuestCart } = await import('../../cart/guestCart.js');
+    const { startSession } = await import('../hooks.js');
+    const order = [];
+    mergeGuestCart.mockImplementation(async () => {
+      order.push(
+        `merge(status=${useAuthStore.getState().status}, token=${useAuthStore.getState().accessToken})`,
+      );
+    });
+    await startSession({ accessToken: 'tok2', user: { _id: 'u' } }, new QueryClient());
+    order.push(`after(status=${useAuthStore.getState().status})`);
+    expect(order).toEqual(['merge(status=guest, token=tok2)', 'after(status=authenticated)']);
+  });
+});

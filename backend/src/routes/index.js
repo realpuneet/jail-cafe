@@ -10,6 +10,7 @@ import {
   menuRoutes,
   zoneRoutes,
 } from './catalog.routes.js';
+import { bookingRoutes, slotRoutes } from './booking.routes.js';
 import { cartRoutes, notificationRoutes, orderRoutes, paymentRoutes } from './order.routes.js';
 
 /** Versioned API router (mounted at API_PREFIX). Feature routers are registered per phase. */
@@ -28,5 +29,7 @@ export function apiRouter() {
   router.use('/orders', orderRoutes);
   router.use('/payments', paymentRoutes);
   router.use('/notifications', notificationRoutes);
+  router.use('/booking-slots', slotRoutes);
+  router.use('/table-bookings', bookingRoutes);
   return router;
 }

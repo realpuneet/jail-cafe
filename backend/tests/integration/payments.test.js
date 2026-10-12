@@ -300,7 +300,10 @@ describe('webhook', () => {
     const { order } = await pending();
     await Order.updateOne({ _id: order._id }, { status: 'CANCELLED' });
     await webhook(captured('order_rz1', 'pay_late', 15000)).expect(200);
-    expect(jobs.find((j) => j.name === 'refund-order')?.data).toEqual({ orderId: order._id });
+    expect(jobs.find((j) => j.name === 'refund-payment')?.data).toEqual({
+      purpose: 'order',
+      refId: order._id,
+    });
   });
 });
 
@@ -323,9 +326,9 @@ describe('refunds', () => {
       .set(auth)
       .send({ reason: 'oops' })
       .expect(200);
-    const refundJobs = jobs.filter((j) => j.name === 'refund-order');
+    const refundJobs = jobs.filter((j) => j.name === 'refund-payment');
     expect(refundJobs).toHaveLength(1);
-    expect(refundJobs[0].opts.jobId).toBe(`refund-${order._id}`);
+    expect(refundJobs[0].opts.jobId).toBe(`refund-order-${order._id}`);
 
     const res = await refundOrder(order._id);
     expect(res.refunded).toBe(15000);

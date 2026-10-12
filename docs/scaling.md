@@ -18,3 +18,7 @@
 | 50 L → 1 Cr+ |                  | Orders/notifications write volume and collection size | Shard `orders`/`notifications` (see `db.md`), archive old orders, separate services (orders, notifications, realtime), dedicated Redis for queues vs cache                  |
 
 Peak load is bursty (lunch/dinner); size for the burst and autoscale on CPU + event-loop lag. A load-test script (k6/autocannon) is added in Phase 8.
+
+## Table booking at scale
+
+Seat counts live in one tiny document per (slot, day), updated with a single atomic conditional `$inc`, so there is no lock, no read-modify-write loop and no cross-document coordination: contention only exists between requests for the _same_ slot and day. If one hot slot (e.g. Saturday dinner) ever becomes a bottleneck, split its capacity into N sub-counters (`slotId`, `date`, `bucket`) and try buckets in random order; the API and data model stay the same. Holds are released by a per-minute maintenance job (bounded to 200 per run, safe to run on every worker replica because each release is a compare-and-set).

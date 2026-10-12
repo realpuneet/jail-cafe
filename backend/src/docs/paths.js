@@ -518,4 +518,107 @@ export const paths = {
       body: obj({ ids: { type: 'array', items: str() } }),
     }),
   },
+
+  '/booking-slots/availability': {
+    get: op(
+      'Table booking',
+      'Slots for a date with live remaining seats (IST date, today..+30 days)',
+      {
+        auth: false,
+        params: [
+          { name: 'date', in: 'query', required: true, schema: str({ example: '2026-10-20' }) },
+        ],
+      },
+    ),
+  },
+  '/booking-slots': {
+    post: op('Table booking', 'Create slot', {
+      roles: 'admin',
+      status: '201',
+      body: obj(
+        {
+          label: str(),
+          startTime: str({ example: '19:00' }),
+          endTime: str({ example: '21:00' }),
+          capacity: { type: 'integer' },
+          maxPartySize: { type: 'integer' },
+          daysOfWeek: { type: 'array', items: { type: 'integer' } },
+          depositPerGuest: { type: 'integer', description: 'paise' },
+        },
+        ['label', 'startTime', 'endTime', 'capacity'],
+      ),
+    }),
+  },
+  '/booking-slots/manage': { get: op('Table booking', 'All slots', { roles: 'admin, staff' }) },
+  '/booking-slots/{id}': {
+    patch: op('Table booking', 'Update slot (capacity change propagates to future days)', {
+      roles: 'admin',
+      params: [idParam],
+      body: obj({ capacity: { type: 'integer' } }),
+    }),
+    delete: op('Table booking', 'Disable slot', { roles: 'admin', params: [idParam] }),
+  },
+  '/table-bookings': {
+    get: op('Table booking', 'My bookings (cursor)', { params: cursorParams }),
+    post: op(
+      'Table booking',
+      'Book a table. Seats are taken atomically (no double booking). With a deposit the booking is HELD for 10 minutes until paid',
+      {
+        status: '201',
+        params: [
+          { name: 'Idempotency-Key', in: 'header', required: true, schema: str({ minLength: 8 }) },
+        ],
+        body: obj(
+          {
+            slotId: str(),
+            date: str(),
+            guests: { type: 'integer' },
+            name: str(),
+            phone: str(),
+            note: str(),
+          },
+          ['slotId', 'date', 'guests'],
+        ),
+      },
+    ),
+  },
+  '/table-bookings/manage': {
+    get: op('Table booking', 'Staff list; with ?date= returns that day in time order', {
+      roles: 'admin, staff',
+      params: [
+        ...cursorParams,
+        { name: 'date', in: 'query', schema: str() },
+        { name: 'status', in: 'query', schema: str() },
+      ],
+    }),
+  },
+  '/table-bookings/manage/calendar': {
+    get: op('Table booking', 'Per-day booking and guest counts for a month', {
+      roles: 'admin, staff',
+      params: [{ name: 'month', in: 'query', required: true, schema: str({ example: '2026-10' }) }],
+    }),
+  },
+  '/table-bookings/{id}': {
+    get: op('Table booking', 'Booking detail (owner or staff)', { params: [idParam] }),
+  },
+  '/table-bookings/{id}/pay': {
+    post: op(
+      'Table booking',
+      'Create the Razorpay order for the deposit (then /payments/razorpay/verify)',
+      { params: [idParam] },
+    ),
+  },
+  '/table-bookings/{id}/cancel': {
+    post: op('Table booking', 'Cancel (customers until 2h before start); deposit is refunded', {
+      params: [idParam],
+      body: obj({ reason: str() }),
+    }),
+  },
+  '/table-bookings/{id}/outcome': {
+    patch: op('Table booking', 'Mark COMPLETED or NO_SHOW', {
+      roles: 'admin, staff',
+      params: [idParam],
+      body: obj({ status: str({ enum: ['COMPLETED', 'NO_SHOW'] }) }, ['status']),
+    }),
+  },
 };

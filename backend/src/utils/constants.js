@@ -129,11 +129,15 @@ export const QUEUES = Object.freeze({
   NOTIFICATIONS_DLQ: 'notifications-dlq',
   PAYMENTS: 'payments',
   MAINTENANCE: 'maintenance',
+  REMINDERS: 'reminders',
 });
 export const JOBS = Object.freeze({
   NOTIFY: 'notify',
   REFUND_ORDER: 'refund-order',
+  REFUND_PAYMENT: 'refund-payment',
   EXPIRE_UNPAID_ORDERS: 'expire-unpaid-orders',
+  EXPIRE_BOOKING_HOLDS: 'expire-booking-holds',
+  BOOKING_REMINDER: 'booking-reminder',
 });
 
 export const SOCKET_EVENTS = Object.freeze({
@@ -142,4 +146,31 @@ export const SOCKET_EVENTS = Object.freeze({
   ORDER_PAYMENT: 'order:payment',
   ORDER_LOCATION: 'order:location',
   NOTIFICATION: 'notification:new',
+  BOOKING_NEW: 'booking:new',
+  BOOKING_UPDATE: 'booking:update',
+});
+
+export const BOOKING_STATUS = Object.freeze({
+  HELD: 'HELD', // seats reserved, waiting for the deposit
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED', // deposit not paid in time, seats released
+  COMPLETED: 'COMPLETED',
+  NO_SHOW: 'NO_SHOW',
+});
+export const BOOKING_STATUS_VALUES = Object.freeze(Object.values(BOOKING_STATUS));
+export const BOOKING = Object.freeze({
+  HOLD_MINUTES: 10,
+  MIN_LEAD_MINUTES: 30,
+  MAX_ADVANCE_DAYS: 30,
+  CANCEL_CUTOFF_HOURS: 2, // customers can cancel confirmed bookings until this long before start
+  REMINDER_HOURS_BEFORE: 2,
+  DEFAULT_MAX_PARTY: 10,
+});
+export const DEPOSIT_STATUS = Object.freeze({
+  NONE: 'none',
+  PENDING: 'pending',
+  PAID: 'paid',
+  REFUNDED: 'refunded',
+  PARTIALLY_REFUNDED: 'partially_refunded',
 });

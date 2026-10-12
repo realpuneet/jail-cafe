@@ -10,18 +10,24 @@ import { createGatewayOrder, verifyPayment } from './api.js';
  * @param {{name?: string, phone?: string, email?: string}} [prefill]
  */
 export async function payForOrder(order, prefill = {}) {
-  const [Razorpay, gateway] = await Promise.all([
-    loadRazorpay(),
-    createGatewayOrder(order._id, newIdempotencyKey()),
-  ]);
+  const gateway = await createGatewayOrder(order._id, newIdempotencyKey());
+  return openCheckout(gateway, prefill);
+}
 
+/**
+ * Open Razorpay Checkout for a gateway order created by the API (orders, deposits, tokens).
+ * @param {{keyId?: string, amount: number, currency: string, name: string, orderNumber: string, razorpayOrderId: string}} gateway
+ * @param {{name?: string, phone?: string, email?: string}} [prefill]
+ */
+export async function openCheckout(gateway, prefill = {}) {
+  const Razorpay = await loadRazorpay();
   return new Promise((resolve, reject) => {
     const instance = new Razorpay({
       key: gateway.keyId || env.razorpayKeyId,
       amount: gateway.amount,
       currency: gateway.currency,
       name: gateway.name,
-      description: `Order ${gateway.orderNumber}`,
+      description: `Ref ${gateway.orderNumber}`,
       order_id: gateway.razorpayOrderId,
       prefill: { name: prefill.name, contact: prefill.phone, email: prefill.email },
       theme: { color: '#8f5522' },

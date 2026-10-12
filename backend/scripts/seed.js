@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { env } from '../src/config/env.js';
 import { Category } from '../src/models/Category.js';
+import { BookingSlot } from '../src/models/BookingSlot.js';
 import { Coupon } from '../src/models/Coupon.js';
 import { DeliveryZone } from '../src/models/DeliveryZone.js';
 import { MenuItem } from '../src/models/MenuItem.js';
@@ -144,6 +145,26 @@ async function seedZonesAndCoupons() {
   console.log('zones and coupons seeded');
 }
 
+async function seedSlots() {
+  const slots = [
+    { label: 'Lunch', startTime: '12:30', endTime: '14:30', capacity: 30, maxPartySize: 8 },
+    { label: 'Dinner', startTime: '19:00', endTime: '20:30', capacity: 40, maxPartySize: 10 },
+    { label: 'Late dinner', startTime: '20:30', endTime: '22:00', capacity: 40, maxPartySize: 10 },
+    {
+      label: 'Weekend special',
+      startTime: '21:00',
+      endTime: '23:00',
+      capacity: 30,
+      maxPartySize: 8,
+      daysOfWeek: [5, 6, 0],
+      depositPerGuest: 10000,
+    },
+  ];
+  for (const s of slots)
+    await BookingSlot.updateOne({ label: s.label }, { $setOnInsert: s }, { upsert: true });
+  console.log('booking slots seeded');
+}
+
 await mongoose.connect(env.MONGO_URI, { dbName: env.MONGO_DB_NAME });
 try {
   await User.init();
@@ -151,6 +172,7 @@ try {
   await seedAdmin();
   await seedCatalog();
   await seedZonesAndCoupons();
+  await seedSlots();
 } finally {
   await mongoose.disconnect();
 }

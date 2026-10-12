@@ -1,8 +1,9 @@
 import { Worker } from 'bullmq';
 import { createRedisConnection } from '../config/redis.js';
 import { processNotification } from '../services/notification.service.js';
+import { expireOverdueHolds, sendReminder } from '../services/tableBooking.service.js';
 import { expireUnpaidOrders } from '../services/order.service.js';
-import { refundOrder } from '../services/payment.service.js';
+import { refundPayment } from '../services/payment.service.js';
 import { JOBS, ORDER, QUEUES } from '../utils/constants.js';
 import { logger } from '../utils/logger.js';
 import { bullPrefix, DEFAULT_JOB_OPTIONS, enqueue, getQueue } from './queues.js';
@@ -10,8 +11,13 @@ import { bullPrefix, DEFAULT_JOB_OPTIONS, enqueue, getQueue } from './queues.js'
 /** Route a job to its handler by queue name + job name. */
 const handlers = {
   [QUEUES.NOTIFICATIONS]: { [JOBS.NOTIFY]: processNotification },
-  [QUEUES.PAYMENTS]: { [JOBS.REFUND_ORDER]: (job) => refundOrder(job.data.orderId) },
+  [QUEUES.PAYMENTS]: {
+    [JOBS.REFUND_PAYMENT]: (job) => refundPayment(job.data),
+    [JOBS.REFUND_ORDER]: (job) => refundPayment({ purpose: 'order', refId: job.data.orderId }), // legacy job shape
+  },
+  [QUEUES.REMINDERS]: { [JOBS.BOOKING_REMINDER]: (job) => sendReminder(job.data.bookingId) },
   [QUEUES.MAINTENANCE]: {
+    [JOBS.EXPIRE_BOOKING_HOLDS]: async () => ({ expired: await expireOverdueHolds() }),
     [JOBS.EXPIRE_UNPAID_ORDERS]: async () => ({
       cancelled: await expireUnpaidOrders(ORDER.UNPAID_EXPIRY_MINUTES),
     }),
@@ -54,34 +60,42 @@ export async function deadLetter(queueName, job, err) {
  * @returns {Promise<() => Promise<void>>} closer for graceful shutdown
  */
 export async function startWorkers() {
-  const workers = [QUEUES.NOTIFICATIONS, QUEUES.PAYMENTS, QUEUES.MAINTENANCE].map((name) => {
-    const connection = createRedisConnection(`worker-${name}`);
-    const worker = new Worker(
-      name,
-      (job) => {
-        const fn = handlers[name]?.[job.name];
-        if (!fn) throw new Error(`No handler for ${name}/${job.name}`);
-        return fn(job);
-      },
-      { connection, prefix: bullPrefix(), concurrency: name === QUEUES.NOTIFICATIONS ? 20 : 5 },
-    );
-    worker.on('failed', (job, err) => {
-      logger.warn(
-        { queue: name, jobId: job?.id, attempt: job?.attemptsMade, err: err.message },
-        'job failed',
+  const workers = [QUEUES.NOTIFICATIONS, QUEUES.PAYMENTS, QUEUES.REMINDERS, QUEUES.MAINTENANCE].map(
+    (name) => {
+      const connection = createRedisConnection(`worker-${name}`);
+      const worker = new Worker(
+        name,
+        (job) => {
+          const fn = handlers[name]?.[job.name];
+          if (!fn) throw new Error(`No handler for ${name}/${job.name}`);
+          return fn(job);
+        },
+        { connection, prefix: bullPrefix(), concurrency: name === QUEUES.NOTIFICATIONS ? 20 : 5 },
       );
-      deadLetter(name, job, err).catch((e) =>
-        logger.error({ err: e.message }, 'dead-letter failed'),
-      );
-    });
-    worker.on('error', (err) => logger.error({ queue: name, err: err.message }, 'worker error'));
-    return { worker, connection };
-  });
+      worker.on('failed', (job, err) => {
+        logger.warn(
+          { queue: name, jobId: job?.id, attempt: job?.attemptsMade, err: err.message },
+          'job failed',
+        );
+        deadLetter(name, job, err).catch((e) =>
+          logger.error({ err: e.message }, 'dead-letter failed'),
+        );
+      });
+      worker.on('error', (err) => logger.error({ queue: name, err: err.message }, 'worker error'));
+      return { worker, connection };
+    },
+  );
 
   await getQueue(QUEUES.MAINTENANCE).upsertJobScheduler(
     JOBS.EXPIRE_UNPAID_ORDERS,
     { every: 5 * 60 * 1000 },
     { name: JOBS.EXPIRE_UNPAID_ORDERS, opts: { ...DEFAULT_JOB_OPTIONS, attempts: 2 } },
+  );
+
+  await getQueue(QUEUES.MAINTENANCE).upsertJobScheduler(
+    JOBS.EXPIRE_BOOKING_HOLDS,
+    { every: 60 * 1000 },
+    { name: JOBS.EXPIRE_BOOKING_HOLDS, opts: { ...DEFAULT_JOB_OPTIONS, attempts: 2 } },
   );
 
   logger.info({ queues: workers.length }, 'workers started');

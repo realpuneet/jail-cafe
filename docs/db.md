@@ -1,6 +1,6 @@
 # Database Design
 
-> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) and **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`). All money fields are integer **paise**.
+> Living schema reference; each phase adds its collections (fields, indexes + the query each serves, enums, examples, caching, sizing). **Implemented so far: Phase 1** (`users`, `refreshtokens`, `addresses`) **Phase 2** (`categories`, `menuitems`, `banners`, `deliveryzones`, `coupons`, `couponredemptions`, `couponusages`) **Phase 3** (`carts`, `counters`, `orders`, `payments`, `paymentevents`, `notifications`) and **Phase 5** (`bookingslots`, `slotinventories`, `tablebookings`). All money fields are integer **paise**.
 
 ## Conventions
 
@@ -163,6 +163,30 @@ In-app inbox: `userId,type,title,body,data,readAt,dedupeKey (unique partial = qu
 | `rider:loc:<orderId>`                 | 10 min | Last rider location for late joiners                                             |
 | `io:*`                                | —      | Socket.io Redis adapter channels                                                 |
 | `bull:<queue>:*`                      | —      | BullMQ queues `notifications`, `notifications-dlq`, `payments`, `maintenance`    |
+
+## Phase 5 collections (table booking)
+
+**Booking state machine** (`tablebookings.status`): `HELD → CONFIRMED → COMPLETED | NO_SHOW`; `HELD → EXPIRED` (deposit not paid within 10 min, by the maintenance job); `HELD|CONFIRMED → CANCELLED`. Without a deposit a booking starts as `CONFIRMED`. Customers may cancel a confirmed booking until 2 h before start; staff any time. Cancel/expire release seats in the same transaction as the status change.
+
+**Why double booking is impossible.** Capacity is tracked per _(slot, date)_ in one small document (`slotinventories`). A booking takes seats with a single conditional update — `findOneAndUpdate({slotId, date, $expr: booked + guests <= capacity}, {$inc: {booked: guests}})` — executed in the same transaction that inserts the booking. The filter is evaluated atomically on that one document, so two concurrent requests cannot both pass it; verified by tests that fire 12 simultaneous 2-guest bookings at 10 seats (exactly 5 succeed, `booked` ends at 10) and mixed party sizes (`booked` always equals the sum of live bookings). The inventory row is created beforehand with an upsert outside the transaction (duplicate-key safe).
+
+### `bookingslots`
+
+Repeating windows: `label` · `startTime`/`endTime` (`HH:mm` IST) · `capacity` (seats per day) · `maxPartySize`(10) · `daysOfWeek`[0–6] · `depositPerGuest` (paise, 0 = none) · `isActive`. Index `{isActive:1,startTime:1}`. Tens of docs.
+
+### `slotinventories`
+
+`{slotId, date "YYYY-MM-DD", capacity, booked, expiresAt}`. Indexes: `{slotId:1,date:1}` **unique** (the atomic seat counter) · `{date:1}` (availability for a day) · TTL on `expiresAt` (date + 90 days). 1 doc per slot per bookable day ⇒ a few hundred live docs.
+
+### `tablebookings`
+
+`bookingNumber` (`TB-YYMMDD-0001`, unique) · `userId` · `slotId` + `slot{label,startTime,endTime}` snapshot · `date` · `startsAt` (UTC instant) · `guests` · `name`,`phone`,`note` · `status` · `deposit{amount,status: none|pending|paid|refunded|partially_refunded}` · `holdExpiresAt` · `idempotencyKey` · `cancelledAt`,`cancelReason` · `statusHistory[]` (≤ 4).
+Indexes: `{bookingNumber:1}` unique · `{userId:1,_id:-1}` (my bookings) · `{date:1,slotId:1,status:1}` (staff day view / calendar) · `{holdExpiresAt:1}` partial on `HELD` (hold-expiry job) · `{userId:1,idempotencyKey:1}` unique partial · `{userId:1,slotId:1,date:1}` **unique partial on HELD/CONFIRMED** (one live booking per user per slot per day).
+Size ≈ 700 B. Deposits reuse `payments` with `purpose: "booking"`. Archive bookings older than 12 months; shard on hashed `userId`.
+
+### Jobs & realtime (Phase 5)
+
+`maintenance` queue: `expire-booking-holds` every minute. `reminders` queue: delayed `booking-reminder` (2 h before start, `jobId reminder-<id>`; the handler re-checks the booking is still confirmed, and cancel removes it). Socket events to the `staff` room: `booking:new`, `booking:update`.
 
 ## Sharding & archiving strategy (preview; detailed per collection later)
 

@@ -4,20 +4,18 @@ import { Cart } from '../models/Cart.js';
 import { nextSeq } from '../models/Counter.js';
 import { Order } from '../models/Order.js';
 import { User } from '../models/User.js';
-import { enqueue } from '../jobs/queues.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
-  JOBS,
   ORDER_ACTIVE_STATUSES,
   ORDER_STATUS as S,
   ORDER_TYPE,
   PAYMENT_METHOD,
   PAYMENT_STATUS,
-  QUEUES,
   ROLES,
 } from '../utils/constants.js';
 import { assertTransition } from '../utils/orderStateMachine.js';
 import { paginate } from '../utils/pagination.js';
+import { queueRefund } from './payment.service.js';
 import * as couponService from './coupon.service.js';
 import * as deliveryZones from './deliveryZone.service.js';
 import {
@@ -275,12 +273,7 @@ async function onOrderClosed(order) {
     order.payment.method === PAYMENT_METHOD.ONLINE &&
     order.payment.status === PAYMENT_STATUS.PAID
   ) {
-    await enqueue(
-      QUEUES.PAYMENTS,
-      JOBS.REFUND_ORDER,
-      { orderId: String(order._id) },
-      { jobId: `refund-${order._id}` },
-    );
+    await queueRefund('order', order._id);
   }
 }
 

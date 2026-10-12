@@ -2,7 +2,7 @@
 
 Food ordering + table booking + party booking + admin/staff/rider panels for the cafe **Jail Ki Chai**, built to scale to 1 Cr+ registered users.
 
-> **Status:** Phase 0–4 complete (backend through realtime + customer web app foundation). See [Roadmap](#roadmap).
+> **Status:** Phase 0–5 complete (customer web app with ordering and table booking). See [Roadmap](#roadmap).
 
 ## Features (target)
 
@@ -92,6 +92,7 @@ Seed (`npm run seed`) and the frontend scripts arrive in later phases.
 - Cart `/cart…` (server-priced, atomic) · `POST /orders/preview`, `POST /orders` (**requires `Idempotency-Key`**), `GET /orders`, `POST /orders/:id/cancel` · staff `GET /orders/manage`, `PATCH /orders/:id/status|assign` · rider `GET /orders/rider/mine`
 - Payments: `POST /payments/razorpay/order` → Razorpay Checkout → `POST /payments/razorpay/verify`; `POST /payments/razorpay/webhook` (signature + idempotency). COD supported.
 - `GET /notifications`, `/notifications/unread-count`, `POST /notifications/read`
+- Table booking: `GET /booking-slots/availability?date=` (live seats) · `POST /table-bookings` (**requires `Idempotency-Key`**; seats are taken atomically, deposit slots are HELD 10 min until paid via `POST /table-bookings/:id/pay` + `/payments/razorpay/verify`) · `GET /table-bookings`, `POST /table-bookings/:id/cancel` · staff: `GET /table-bookings/manage[?date=]`, `/manage/calendar?month=`, `PATCH /:id/outcome`; admin slot CRUD under `/booking-slots`
 - **Realtime (Socket.io, same origin as the API)** – connect with `auth: { token: <access token> }`. Client → server: `order:subscribe {orderId}` (ack returns status + last rider location), `rider:location {orderId,lat,lng}` (riders). Server → client: `order:new` (staff room; play the alert sound), `order:status`, `order:payment`, `order:location`, `notification:new`.
 - Probes: `GET /health` (liveness), `GET /ready` (Mongo + Redis; 503 while shutting down)
 - Response envelope: `{ success, message, data, meta }`; errors: `{ success:false, message, code, details, requestId }`
@@ -130,4 +131,5 @@ Prettier + ESLint enforced by a Husky pre-commit (lint-staged). Enums/constants 
 - [x] **Phase 1** auth (OTP, JWT rotation + reuse detection, RBAC), users, addresses, ImageKit uploads
 - [x] **Phase 2** categories, menu items (variants/add-ons/stock toggle), banners, delivery zones, coupons + versioned Redis cache
 - [x] **Phase 4** frontend foundation: design system, Lenis + GSAP, layouts, OTP auth, menu, cart (guest + server, optimistic), checkout + Razorpay, live order tracking, PWA
-- [ ] Phase 5 table booking · Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs
+- [x] **Phase 5** table booking: slot inventory with atomic seat counters (no double booking), optional refundable deposit with auto-expiring holds, reminders, cancellation rules, booking calendar API; frontend booking flow
+- [ ] Phase 6 party booking · Phase 7 admin · Phase 8 perf/security/docs

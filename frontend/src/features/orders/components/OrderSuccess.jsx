@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { gsap, useGSAP, prefersReducedMotion } from '../../../lib/gsap.js';
 
 /** Celebration after placing an order: ring + check pop, then chai-leaf confetti. */
-export default function OrderSuccess({ orderNumber, onDone }) {
+export default function OrderSuccess({ orderNumber, onDone, title = 'Order placed!', message }) {
   const root = useRef(null);
   useGSAP(
     () => {
@@ -66,10 +66,14 @@ export default function OrderSuccess({ orderNumber, onDone }) {
         ))}
       </div>
       <h2 data-text className="mt-4 text-3xl">
-        Order placed!
+        {title}
       </h2>
       <p data-text className="mt-1 text-muted">
-        Your order <strong>{orderNumber}</strong> is in. Out on good behaviour soon.
+        {message ?? (
+          <>
+            Your order <strong>{orderNumber}</strong> is in. Out on good behaviour soon.
+          </>
+        )}
       </p>
       {onDone && (
         <button data-text onClick={onDone} className="mt-4 text-sm font-bold text-brand underline">

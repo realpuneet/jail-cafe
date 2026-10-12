@@ -173,6 +173,27 @@ try {
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${SHOTS}/09-tracking-preparing.png` });
 
+  console.log('Table booking');
+  await page.goto(`${BASE}/book-table`, { waitUntil: 'networkidle' });
+  await page.getByRole('radiogroup', { name: 'Date' }).waitFor();
+  await page.getByRole('radio', { name: /Tomorrow/ }).click();
+  const slot = page.getByRole('radio', { name: /Dinner/ }).first();
+  await slot.waitFor();
+  await page.screenshot({ path: `${SHOTS}/13-book-table.png` });
+  await slot.click();
+  await page.getByRole('button', { name: /confirm booking/i }).click();
+  await page.waitForURL('**/bookings/*?confirmed=1');
+  await page.getByText('Table booked!').waitFor();
+  assert((await page.locator('h1').innerText()).startsWith('TB-'), 'booking number shown');
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/14-booking-confirmed.png` });
+  await page.goto(`${BASE}/bookings`, { waitUntil: 'networkidle' });
+  assert((await page.getByText('Confirmed').count()) >= 1, 'booking listed as confirmed');
+  await page.goto(`${BASE}/book-table`, { waitUntil: 'networkidle' });
+  await page.getByRole('radio', { name: /Tomorrow/ }).click();
+  await page.waitForTimeout(600);
+  assert((await page.getByText(/seats left/).count()) >= 1, 'live seat counts shown');
+
   console.log('My orders + profile');
   await page.goto(`${BASE}/orders`, { waitUntil: 'networkidle' });
   assert(await page.getByText(orderNumber).isVisible(), 'order appears in history');

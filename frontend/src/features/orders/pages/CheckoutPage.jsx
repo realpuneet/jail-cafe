@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import Seo from '../../../components/common/Seo.jsx';
 import Button from '../../../components/ui/Button.jsx';
 import Input from '../../../components/ui/Input.jsx';
-import Skeleton from '../../../components/ui/Skeleton.jsx';
+import Skeleton, { PageSkeleton } from '../../../components/ui/Skeleton.jsx';
 import { toApiError } from '../../../lib/apiError.js';
 import { formatPrice } from '../../../lib/format.js';
 import { gsap, useGSAP, prefersReducedMotion } from '../../../lib/gsap.js';
@@ -87,7 +87,7 @@ export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { view, setCoupon, couponPending, setQuantity, remove } = useCart();
+  const { view, isLoading: cartLoading, setCoupon, couponPending, setQuantity, remove } = useCart();
   const { data: addresses = [], isLoading: addrLoading } = useAddresses();
   const { data: offers = [] } = usePublicCoupons();
 
@@ -185,6 +185,8 @@ export default function CheckoutPage() {
     }
   };
 
+  // Wait for the server cart before deciding it is empty (right after login it is still loading).
+  if (cartLoading) return <PageSkeleton />;
   if (view.items.length === 0 && !place.isPending && !place.isSuccess)
     return <Navigate to="/menu" replace />;
 

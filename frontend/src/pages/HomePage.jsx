@@ -163,6 +163,29 @@ export default function HomePage() {
         )}
       </section>
 
+      <section className="container-page pt-14" aria-labelledby="book-h">
+        <Reveal className="relative overflow-hidden rounded-3xl bg-chai-900 p-8 text-chai-50 sm:p-12">
+          <div
+            aria-hidden="true"
+            className="bars pointer-events-none absolute inset-0 text-chai-50/[0.06]"
+          />
+          <div className="relative max-w-xl">
+            <h2 id="book-h" className="text-3xl sm:text-4xl">
+              Reserve your cell. Err, table.
+            </h2>
+            <p className="mt-3 text-chai-200">
+              Dinner with friends? Pick a date and time, see live availability and get an instant
+              confirmation.
+            </p>
+            <div className="mt-6">
+              <Button to="/book-table" variant="accent" size="lg">
+                Book a table
+              </Button>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
       <section className="container-page pt-16" aria-labelledby="how-h">
         <Reveal as="h2" id="how-h" className="mb-6 text-3xl sm:text-4xl">
           How it works

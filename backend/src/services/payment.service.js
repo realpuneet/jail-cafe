@@ -18,36 +18,46 @@ import { announceNewOrder, announcePayment, isKitchenVisible } from './orderEven
 import * as notifications from './notification.service.js';
 
 /**
- * Create (or reuse) the Razorpay order for one of the user's unpaid online orders.
- * @param {string} userId
- * @param {string} orderId
+ * Per-purpose hooks so orders, table deposits and party tokens share one gateway flow.
+ *  - snapshot(payment)            -> data returned when a capture was already applied
+ *  - onCaptured(payment)          -> apply a first-time capture to the business object
+ *  - onRefund(payment, {amount, refundId, full}) -> reflect a recorded refund
  */
-export async function createGatewayOrder(userId, orderId) {
-  const order = await Order.findOne({ _id: orderId, userId }).lean();
-  if (!order) throw ApiError.notFound('Order not found');
-  if (order.payment.method !== PAYMENT_METHOD.ONLINE)
-    throw ApiError.badRequest('This order is not an online-payment order');
-  if (order.status !== S.PLACED) throw ApiError.conflict(`Order is ${order.status.toLowerCase()}`);
-  if (order.payment.status === PAYMENT_STATUS.PAID)
-    throw ApiError.conflict('Order is already paid');
+const purposes = new Map();
+export const registerPurpose = (purpose, hooks) => purposes.set(purpose, hooks);
 
+/** Queue a refund for everything captured on (purpose, refId). Idempotent per job id. */
+export const queueRefund = (purpose, refId) =>
+  enqueue(
+    QUEUES.PAYMENTS,
+    JOBS.REFUND_PAYMENT,
+    { purpose, refId: String(refId) },
+    { jobId: `refund-${purpose}-${refId}` },
+  );
+
+/**
+ * Create (or reuse) a Razorpay order for something a user must pay for.
+ * @param {{purpose: string, refId: any, userId: any, amount: number, receipt: string}} p amount in paise
+ */
+export async function createGatewayPayment({ purpose, refId, userId, amount, receipt }) {
   let payment = await Payment.findOne({
-    purpose: PAYMENT_PURPOSE.ORDER,
-    refId: order._id,
+    purpose,
+    refId,
+    amount,
     status: { $in: [GATEWAY_STATUS.CREATED, GATEWAY_STATUS.FAILED] },
   }).sort({ _id: -1 });
   if (!payment) {
     const rz = await razorpayService.createOrder({
-      amount: order.pricing.total,
-      receipt: order.orderNumber,
-      notes: { orderId: String(order._id), purpose: PAYMENT_PURPOSE.ORDER },
+      amount,
+      receipt,
+      notes: { refId: String(refId), purpose },
     });
     payment = await Payment.create({
-      purpose: PAYMENT_PURPOSE.ORDER,
-      refId: order._id,
+      purpose,
+      refId,
       userId,
       providerOrderId: rz.id,
-      amount: order.pricing.total,
+      amount,
       currency: rz.currency ?? 'INR',
     });
   }
@@ -56,16 +66,39 @@ export async function createGatewayOrder(userId, orderId) {
     razorpayOrderId: payment.providerOrderId,
     amount: payment.amount,
     currency: payment.currency,
-    orderNumber: order.orderNumber,
+    orderNumber: receipt,
     name: env.CAFE_NAME,
   };
 }
 
 /**
- * Mark a gateway payment captured and the order paid. Safe to call many times
+ * Create (or reuse) the Razorpay order for one of the user's unpaid online orders.
+ * @param {string} userId
+ * @param {string} orderId
+ */
+export async function createGatewayOrder(userId, orderId) {
+  const order = await Order.findOne({ _id: orderId, userId }).lean();
+  if (!order) throw ApiError.notFound('Order not found');
+  if (order.payment.method !== PAYMENT_METHOD.ONLINE) {
+    throw ApiError.badRequest('This order is not an online-payment order');
+  }
+  if (order.status !== S.PLACED) throw ApiError.conflict(`Order is ${order.status.toLowerCase()}`);
+  if (order.payment.status === PAYMENT_STATUS.PAID)
+    throw ApiError.conflict('Order is already paid');
+  return createGatewayPayment({
+    purpose: PAYMENT_PURPOSE.ORDER,
+    refId: order._id,
+    userId,
+    amount: order.pricing.total,
+    receipt: order.orderNumber,
+  });
+}
+
+/**
+ * Mark a gateway payment captured and apply it to the business object. Safe to call many times
  * (checkout callback, webhook, retries): only the first call changes state.
  * @param {{providerOrderId: string, providerPaymentId: string, amount?: number}} p
- * @returns {Promise<{changed: boolean, order: object|null}>}
+ * @returns {Promise<{changed: boolean} & Record<string, any>>}
  */
 export async function markCaptured({ providerOrderId, providerPaymentId, amount }) {
   const payment = await Payment.findOne({ providerOrderId }).lean();
@@ -78,6 +111,7 @@ export async function markCaptured({ providerOrderId, providerPaymentId, amount 
     throw ApiError.conflict('Payment amount mismatch');
   }
 
+  const hooks = purposes.get(payment.purpose);
   const claimed = await Payment.findOneAndUpdate(
     { _id: payment._id, status: { $ne: GATEWAY_STATUS.CAPTURED } },
     {
@@ -90,42 +124,74 @@ export async function markCaptured({ providerOrderId, providerPaymentId, amount 
     },
     { returnDocument: 'after' },
   ).lean();
-  if (!claimed) return { changed: false, order: await Order.findById(payment.refId).lean() };
+  if (!claimed) return { changed: false, ...(await hooks?.snapshot?.(payment)) };
 
-  const order = await Order.findOneAndUpdate(
-    {
-      _id: payment.refId,
-      'payment.status': { $in: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.FAILED] },
-    },
-    { $set: { 'payment.status': PAYMENT_STATUS.PAID, 'payment.paidAt': new Date() } },
-    { returnDocument: 'after' },
-  ).lean();
-  if (!order) return { changed: true, order: await Order.findById(payment.refId).lean() };
-
-  if (order.status === S.CANCELLED || order.status === S.REJECTED) {
-    // Paid after the order was closed (e.g. expired): give the money back.
-    await enqueue(
-      QUEUES.PAYMENTS,
-      JOBS.REFUND_ORDER,
-      { orderId: String(order._id) },
-      { jobId: `refund-${order._id}` },
-    );
-    return { changed: true, order };
+  if (!hooks) {
+    logger.error({ purpose: payment.purpose }, 'no payment hooks registered');
+    return { changed: true };
   }
-  announcePayment(order);
-  if (isKitchenVisible(order)) announceNewOrder(order);
-  await notifications.notify(
-    order.userId,
-    {
-      type: 'payment',
-      title: 'Payment received',
-      body: `We received Rs ${order.pricing.total / 100} for order ${order.orderNumber}.`,
-      data: { orderId: String(order._id) },
-    },
-    { dedupeId: `payment-${order._id}` },
-  );
-  return { changed: true, order };
+  return { changed: true, ...(await hooks.onCaptured(claimed)) };
 }
+
+registerPurpose(PAYMENT_PURPOSE.ORDER, {
+  snapshot: async (payment) => ({ order: await Order.findById(payment.refId).lean() }),
+
+  async onCaptured(payment) {
+    const order = await Order.findOneAndUpdate(
+      {
+        _id: payment.refId,
+        'payment.status': { $in: [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.FAILED] },
+      },
+      { $set: { 'payment.status': PAYMENT_STATUS.PAID, 'payment.paidAt': new Date() } },
+      { returnDocument: 'after' },
+    ).lean();
+    if (!order) return { order: await Order.findById(payment.refId).lean() };
+
+    if (order.status === S.CANCELLED || order.status === S.REJECTED) {
+      // Paid after the order was closed (e.g. expired): give the money back.
+      await queueRefund(PAYMENT_PURPOSE.ORDER, order._id);
+      return { order };
+    }
+    announcePayment(order);
+    if (isKitchenVisible(order)) announceNewOrder(order);
+    await notifications.notify(
+      order.userId,
+      {
+        type: 'payment',
+        title: 'Payment received',
+        body: `We received Rs ${order.pricing.total / 100} for order ${order.orderNumber}.`,
+        data: { orderId: String(order._id) },
+      },
+      { dedupeId: `payment-${order._id}` },
+    );
+    return { order };
+  },
+
+  async onRefund(payment, { amount, refundId, full }) {
+    const order = await Order.findByIdAndUpdate(
+      payment.refId,
+      {
+        $set: {
+          'payment.refundedAmount': payment.refundedAmount,
+          'payment.status': full ? PAYMENT_STATUS.REFUNDED : PAYMENT_STATUS.PARTIALLY_REFUNDED,
+        },
+      },
+      { returnDocument: 'after' },
+    ).lean();
+    if (!order) return;
+    announcePayment(order);
+    await notifications.notify(
+      order.userId,
+      {
+        type: 'payment',
+        title: 'Refund processed',
+        body: `Rs ${amount / 100} for order ${order.orderNumber} is on its way back to you.`,
+        data: { orderId: String(order._id) },
+      },
+      { dedupeId: `refund-notice-${refundId}` },
+    );
+  },
+});
 
 /**
  * Checkout callback verification (frontend posts the three Razorpay fields).
@@ -144,11 +210,18 @@ export async function verifyCheckout(userId, body) {
     env.RAZORPAY_KEY_SECRET,
   );
   if (!ok) throw ApiError.badRequest('Payment signature verification failed');
-  const { order } = await markCaptured({
+  const result = await markCaptured({
     providerOrderId: body.razorpay_order_id,
     providerPaymentId: body.razorpay_payment_id,
   });
-  return { status: 'paid', orderId: String(order._id), orderNumber: order.orderNumber };
+  const ref = result.order ?? result.booking ?? result.inquiry;
+  return {
+    status: 'paid',
+    purpose: payment.purpose,
+    refId: String(payment.refId),
+    orderId: String(payment.refId), // kept for the order checkout client
+    orderNumber: ref?.orderNumber ?? ref?.bookingNumber ?? ref?.inquiryNumber,
+  };
 }
 
 async function markFailed({ providerOrderId, reason }) {
@@ -158,19 +231,16 @@ async function markFailed({ providerOrderId, reason }) {
     { returnDocument: 'after' },
   ).lean();
   if (!payment) return; // already captured (or unknown): never downgrade
-  const order = await Order.findById(payment.refId, 'userId orderNumber').lean();
-  if (order) {
-    await notifications.notify(
-      order.userId,
-      {
-        type: 'payment',
-        title: 'Payment failed',
-        body: `Your payment for order ${order.orderNumber} did not go through. You can retry from My Orders.`,
-        data: { orderId: String(order._id) },
-      },
-      { dedupeId: `payfail-${payment._id}` },
-    );
-  }
+  await notifications.notify(
+    payment.userId,
+    {
+      type: 'payment',
+      title: 'Payment failed',
+      body: 'Your payment did not go through. You can retry from the same page.',
+      data: { purpose: payment.purpose, refId: String(payment.refId) },
+    },
+    { dedupeId: `payfail-${payment._id}` },
+  );
 }
 
 /**
@@ -189,29 +259,7 @@ async function recordRefund({ providerPaymentId, refundId, amount }) {
     { _id: payment._id },
     { $set: { status: full ? GATEWAY_STATUS.REFUNDED : GATEWAY_STATUS.PARTIALLY_REFUNDED } },
   );
-  const order = await Order.findByIdAndUpdate(
-    payment.refId,
-    {
-      $set: {
-        'payment.refundedAmount': payment.refundedAmount,
-        'payment.status': full ? PAYMENT_STATUS.REFUNDED : PAYMENT_STATUS.PARTIALLY_REFUNDED,
-      },
-    },
-    { returnDocument: 'after' },
-  ).lean();
-  if (order) {
-    announcePayment(order);
-    await notifications.notify(
-      order.userId,
-      {
-        type: 'payment',
-        title: 'Refund processed',
-        body: `Rs ${amount / 100} for order ${order.orderNumber} is on its way back to you.`,
-        data: { orderId: String(order._id) },
-      },
-      { dedupeId: `refund-notice-${refundId}` },
-    );
-  }
+  await purposes.get(payment.purpose)?.onRefund?.(payment, { amount, refundId, full });
 }
 
 /**
@@ -247,24 +295,26 @@ export async function handleWebhook(rawBody, { signature, eventId }) {
     switch (event.event) {
       case 'payment.captured':
       case 'order.paid':
-        if (pay)
+        if (pay) {
           await markCaptured({
             providerOrderId: pay.order_id,
             providerPaymentId: pay.id,
             amount: pay.amount,
           });
+        }
         break;
       case 'payment.failed':
         if (pay) await markFailed({ providerOrderId: pay.order_id, reason: pay.error_description });
         break;
       case 'refund.processed': {
         const refund = event.payload?.refund?.entity;
-        if (refund)
+        if (refund) {
           await recordRefund({
             providerPaymentId: refund.payment_id,
             refundId: refund.id,
             amount: refund.amount,
           });
+        }
         break;
       }
       default:
@@ -281,16 +331,16 @@ export async function handleWebhook(rawBody, { signature, eventId }) {
 const REFUND_LOCK_MS = 2 * 60 * 1000;
 
 /**
- * Refund the remaining amount of an order's captured payment (job handler; retried on failure).
- * @param {string} orderId
+ * Refund the remaining amount of a captured payment (job handler; retried on failure).
+ * @param {{purpose: string, refId: any}} p
  */
-export async function refundOrder(orderId) {
+export async function refundPayment({ purpose, refId }) {
   const staleLock = new Date(Date.now() - REFUND_LOCK_MS);
   // Claim: only one worker at a time may call the gateway for a given payment.
   const payment = await Payment.findOneAndUpdate(
     {
-      purpose: PAYMENT_PURPOSE.ORDER,
-      refId: orderId,
+      purpose,
+      refId,
       status: { $in: [GATEWAY_STATUS.CAPTURED, GATEWAY_STATUS.PARTIALLY_REFUNDED] },
       $or: [
         { refundingSince: { $exists: false } },
@@ -303,11 +353,7 @@ export async function refundOrder(orderId) {
   ).lean();
 
   if (!payment) {
-    const busy = await Payment.exists({
-      purpose: PAYMENT_PURPOSE.ORDER,
-      refId: orderId,
-      refundingSince: { $gte: staleLock },
-    });
+    const busy = await Payment.exists({ purpose, refId, refundingSince: { $gte: staleLock } });
     if (busy) throw new Error('refund already in progress, will retry'); // BullMQ retries with backoff
     return { refunded: 0 };
   }
@@ -317,7 +363,7 @@ export async function refundOrder(orderId) {
     if (remaining <= 0) return { refunded: 0 };
     const refund = await razorpayService.refund(payment.providerPaymentId, {
       amount: remaining,
-      notes: { orderId: String(orderId) },
+      notes: { refId: String(refId), purpose },
     });
     await recordRefund({
       providerPaymentId: payment.providerPaymentId,
@@ -329,3 +375,7 @@ export async function refundOrder(orderId) {
     await Payment.updateOne({ _id: payment._id }, { $unset: { refundingSince: 1 } });
   }
 }
+
+/** Backwards-compatible wrapper for order flows. */
+export const refundOrder = (orderId) =>
+  refundPayment({ purpose: PAYMENT_PURPOSE.ORDER, refId: orderId });

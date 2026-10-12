@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import Seo from '../../../components/common/Seo.jsx';
 import Button from '../../../components/ui/Button.jsx';
@@ -53,6 +53,18 @@ export default function ProfilePage() {
     <div className="container-page max-w-2xl space-y-8 py-8">
       <Seo title="Profile" noindex />
       <h1 className="text-4xl">Your profile</h1>
+
+      <nav aria-label="Your activity" className="grid grid-cols-2 gap-3">
+        <Link to="/orders" className="card p-4 font-bold hover:shadow-lg">
+          🧾 My orders
+        </Link>
+        <Link to="/bookings" className="card p-4 font-bold hover:shadow-lg">
+          🪑 My bookings
+        </Link>
+        <Link to="/notifications" className="card col-span-2 p-4 font-bold hover:shadow-lg">
+          🔔 Notifications
+        </Link>
+      </nav>
 
       <section className="card space-y-4 p-5" aria-labelledby="acct">
         <h2 id="acct" className="text-2xl">

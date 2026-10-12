@@ -22,6 +22,7 @@ function Icon({ name }) {
     user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
     bell: 'M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6zM10 19a2 2 0 0 0 4 0',
     moon: 'M20 14A8 8 0 1 1 10 4a7 7 0 0 0 10 10z',
+    table: 'M4 8h16M6 8v11M18 8v11M9 8V5h6v3',
   };
   return (
     <svg
@@ -91,9 +92,17 @@ function Header() {
           <NavLink to="/menu" className={navCls}>
             Menu
           </NavLink>
+          <NavLink to="/book-table" className={navCls}>
+            Book a table
+          </NavLink>
           {authed && (
             <NavLink to="/orders" className={navCls}>
               My orders
+            </NavLink>
+          )}
+          {authed && (
+            <NavLink to="/bookings" className={navCls}>
+              Bookings
             </NavLink>
           )}
         </nav>
@@ -147,9 +156,9 @@ function MobileNav() {
   const items = [
     ['/', 'Home', 'home', true],
     ['/menu', 'Menu', 'menu'],
+    ['/book-table', 'Book', 'table'],
     ['/cart', 'Cart', 'cart'],
-    [authed ? '/orders' : '/login', authed ? 'Orders' : 'Login', 'orders'],
-    [authed ? '/profile' : '/login', 'Me', 'user'],
+    [authed ? '/profile' : '/login', authed ? 'Me' : 'Login', 'user'],
   ];
   return (
     <nav
@@ -198,6 +207,11 @@ function Footer() {
             <li>
               <Link className="hover:underline" to="/menu">
                 Menu
+              </Link>
+            </li>
+            <li>
+              <Link className="hover:underline" to="/book-table">
+                Book a table
               </Link>
             </li>
             <li>

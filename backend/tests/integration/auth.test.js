@@ -73,6 +73,14 @@ describe('refresh token rotation', () => {
     const second = cookieOf(r1);
     expect(second).toBeTruthy();
     expect(second).not.toBe(first);
+    // the client restores its session from this response after a page reload
+    expect(r1.body.data.user).toMatchObject({
+      phone: '+919876543210',
+      name: 'Test User',
+      role: 'customer',
+    });
+    expect(r1.body.data.user.passwordHash).toBeUndefined();
+    expect(r1.body.data.accessToken).toBeTruthy();
 
     // Replay after the grace window => theft suspected => whole family revoked.
     await RefreshToken.updateMany(

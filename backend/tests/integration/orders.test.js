@@ -455,6 +455,6 @@ describe('order lifecycle', () => {
     const o = await Order.findById(res.body.data._id);
     expect(o.status).toBe('CANCELLED');
     expect(o.cancelReason).toMatch(/not completed/);
-    expect(jobs.some((j) => j.name === 'refund-order')).toBe(false); // nothing was paid
+    expect(jobs.some((j) => j.name === 'refund-payment')).toBe(false); // nothing was paid
   });
 });

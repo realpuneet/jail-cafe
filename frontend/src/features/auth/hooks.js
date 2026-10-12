@@ -37,12 +37,16 @@ export function useRealtimeSession() {
   }, [status, qc]);
 }
 
-/** Start a session after login: store tokens, bring over the guest cart, reset cached user data. */
+/**
+ * Start a session after login. Order matters: the guest cart is merged into the server cart
+ * BEFORE the store flips to "authenticated", because that flip makes the login page redirect
+ * (e.g. straight to checkout) and the destination must already see the merged cart.
+ */
 export async function startSession(session, queryClient) {
-  useAuthStore.getState().setSession(session);
+  useAuthStore.setState({ accessToken: session.accessToken }); // enough for API calls
   queryClient.removeQueries();
   await mergeGuestCart().catch(() => {});
-  queryClient.invalidateQueries({ queryKey: ['cart'] });
+  useAuthStore.getState().setSession(session);
 }
 
 export async function endSession(queryClient) {

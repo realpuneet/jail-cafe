@@ -80,7 +80,7 @@ export async function rotateRefreshToken(refreshToken, meta = {}) {
     throw ApiError.unauthorized('Refresh token already used or revoked');
   }
 
-  const user = await User.findById(claimed.userId, 'role isActive').lean();
+  const user = await User.findById(claimed.userId, 'phone name email role isActive avatar').lean();
   if (!user || !user.isActive) {
     await revokeFamily(claimed.family);
     throw ApiError.unauthorized('Account is disabled');
