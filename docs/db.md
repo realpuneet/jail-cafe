@@ -38,7 +38,7 @@ Purpose: every account (customer via OTP; admin/staff/rider via email+password).
 | `avatar`                                | {fileId,url,filePath,thumbnailUrl} | no  |            | ImageKit; only these fields are stored                     |
 | `lastLoginAt`, `createdAt`, `updatedAt` | Date                               |     |            |                                                            |
 
-Indexes: `{phone:1}` unique (OTP login/upsert) · `{email:1}` unique, partial `email $type string` (staff login) · `{role:1,_id:-1}` (admin list by role, cursor pagination).
+Indexes: `{phone:1}` unique (OTP login/upsert) · `{email:1}` unique + sparse (staff login; a partial `$type` index is not usable by equality lookups) · `{role:1,_id:-1}` (admin list by role, cursor pagination).
 Size ≈ 400 B/doc; 1 Cr users ≈ 4 GB + indexes. Growth: one doc per registered user. Cache: none (profile read is by `_id`); block flag `jkc:blocked:<userId>` in Redis.
 Example: `{ "_id": "65f…", "phone": "+919876543210", "name": "Puneet", "role": "customer", "isActive": true }`
 
@@ -145,7 +145,7 @@ Placement is one transaction: order insert + coupon redemption + cart delete. To
 
 ### `payments`
 
-Gateway attempts: `purpose (order|booking|party)` · `refId` · `userId` · `provider` · `providerOrderId` (unique) · `providerPaymentId` (unique partial) · `amount`(paise) · `currency` · `status` · `refundedAmount` · `refundIds[]` (gateway refund ids already applied) · `refundingSince` (short lock, 2 min, so two workers never refund the same payment) · `failureReason` · `capturedAt`. Index `{purpose:1,refId:1,_id:-1}`. `purpose/refId` let table and party deposits (Phases 5–6) reuse this collection.
+Gateway attempts: `purpose (order|booking|party)` · `refId` · `userId` · `provider` · `providerOrderId` (unique) · `providerPaymentId` (unique sparse) · `amount`(paise) · `currency` · `status` · `refundedAmount` · `refundIds[]` (gateway refund ids already applied) · `refundingSince` (short lock, 2 min, so two workers never refund the same payment) · `failureReason` · `capturedAt`. Index `{purpose:1,refId:1,_id:-1}`. `purpose/refId` let table and party deposits (Phases 5–6) reuse this collection.
 
 ### `paymentevents`
 
@@ -181,7 +181,7 @@ Repeating windows: `label` · `startTime`/`endTime` (`HH:mm` IST) · `capacity` 
 ### `tablebookings`
 
 `bookingNumber` (`TB-YYMMDD-0001`, unique) · `userId` · `slotId` + `slot{label,startTime,endTime}` snapshot · `date` · `startsAt` (UTC instant) · `guests` · `name`,`phone`,`note` · `status` · `deposit{amount,status: none|pending|paid|refunded|partially_refunded}` · `holdExpiresAt` · `idempotencyKey` · `cancelledAt`,`cancelReason` · `statusHistory[]` (≤ 4).
-Indexes: `{bookingNumber:1}` unique · `{userId:1,_id:-1}` (my bookings) · `{date:1,slotId:1,status:1}` (staff day view / calendar) · `{holdExpiresAt:1}` partial on `HELD` (hold-expiry job) · `{userId:1,idempotencyKey:1}` unique partial · `{userId:1,slotId:1,date:1}` **unique partial on HELD/CONFIRMED** (one live booking per user per slot per day).
+Indexes: `{bookingNumber:1}` unique · `{userId:1,_id:-1}` (my bookings) · `{date:1,startsAt:1,status:1}` (staff day view / calendar, sort covered) · `{holdExpiresAt:1}` partial on `HELD` (hold-expiry job) · `{userId:1,idempotencyKey:1}` unique partial · `{userId:1,slotId:1,date:1}` **unique partial on HELD/CONFIRMED** (one live booking per user per slot per day).
 Size ≈ 700 B. Deposits reuse `payments` with `purpose: "booking"`. Archive bookings older than 12 months; shard on hashed `userId`.
 
 ### Jobs & realtime (Phase 5)

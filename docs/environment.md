@@ -14,6 +14,7 @@ Backend vars are validated by Zod in `backend/src/config/env.js`; the process ex
 | `LOG_LEVEL`                                                              | no (info)          | `info`                                                        | Pino                                           | `silent` in tests                                                                                                                         |
 | `BODY_LIMIT`                                                             | no (100kb)         | `100kb`                                                       | body parsers                                   |                                                                                                                                           |
 | `SENTRY_DSN`                                                             | no                 | `https://…@sentry.io/1`                                       | error hook                                     | Sentry project settings                                                                                                                   |
+| `METRICS_TOKEN`                                                          | no                 | 32+ random chars                                              | `/metrics` bearer token                        | Generate (see below). Empty = `/metrics` is not mounted at all                                                                            |
 | `MONGO_URI`                                                              | **yes**            | `mongodb+srv://u:p@cluster.mongodb.net`                       | Mongoose                                       | Atlas → Connect. Must be a replica set (transactions)                                                                                     |
 | `MONGO_DB_NAME`                                                          | no                 | `jailkichai`                                                  | Mongoose                                       |                                                                                                                                           |
 | `MONGO_MAX_POOL_SIZE`                                                    | no (50)            | `50`                                                          | Mongoose                                       | Per instance; total = instances × pool, mind Atlas connection limits                                                                      |
@@ -78,4 +79,8 @@ Run twice: once for access, once for refresh. Use a secret manager in production
 - [ ] HTTPS origins only; correct `TRUST_PROXY`
 - [ ] LB health check → `/health`, readiness → `/ready`; sticky sessions for Socket.io
 - [ ] Razorpay live keys + webhook secret configured
-- [ ] Log shipping and error tracking (Sentry DSN)
+- [ ] Log shipping and error tracking (`SENTRY_DSN`, optional `@sentry/node` install)
+- [ ] `METRICS_TOKEN` set and `/metrics` scraped by Prometheus over the private network only
+- [ ] Rate limits sized for your traffic (`RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`) and Redis-backed (default)
+- [ ] `npm audit --omit=dev` reviewed (see `docs/security.md`)
+- [ ] Seed admin created with `SEED_ADMIN_PASSWORD`, then that variable removed

@@ -101,14 +101,45 @@ Seed (`npm run seed`) and the frontend scripts arrive in later phases.
 
 ## Testing
 
-`cd backend && npm test`. Integration tests start an in-memory MongoDB **replica set** via `mongodb-memory-server` (first run downloads a `mongod` binary; set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to use a local one) and a fake Redis. The BullMQ suite (`tests/integration/queue.test.js`) needs a real Redis: it runs when `CI=true` or `RUN_REDIS_TESTS=1` (uses `REDIS_TEST_URL`, default `redis://127.0.0.1:6379`) and is skipped otherwise.
+`cd backend && npm test` (~420 tests: unit, integration, concurrency, index/explain audit, security matrix, API-docs parity). Frontend: `cd frontend && npm test` (Vitest) and the Playwright scripts in `frontend/e2e`. Load test: `node backend/scripts/loadtest.mjs` (results in docs/scaling.md). Integration tests start an in-memory MongoDB **replica set** via `mongodb-memory-server` (first run downloads a `mongod` binary; set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to use a local one) and a fake Redis. The BullMQ suite (`tests/integration/queue.test.js`) needs a real Redis: it runs when `CI=true` or `RUN_REDIS_TESTS=1` (uses `REDIS_TEST_URL`, default `redis://127.0.0.1:6379`) and is skipped otherwise.
 
-## Deployment (summary)
+## Deployment
 
-- **VPS**: Docker compose or PM2 behind Nginx with sticky sessions for Socket.io; managed MongoDB Atlas + Redis.
-- **Render/Railway**: deploy `backend/` as a Docker web service, set env vars from `docs/environment.md`.
-- **Vercel/Netlify**: frontend (Phase 4).
-  Full checklist: [docs/environment.md](docs/environment.md#production-checklist).
+Prerequisites everywhere: MongoDB **replica set** (Atlas works), Redis with `noeviction` and persistence, ImageKit, Razorpay (webhook configured), an SMS provider. Variables: [docs/environment.md](docs/environment.md).
+
+**VPS (Docker + Nginx)**
+
+1. `cp backend/.env.example backend/.env` and fill production values (https `CLIENT_URLS`, strong secrets, `TRUST_PROXY=1`).
+2. `docker compose up -d --build` (api, web, mongo, redis). For production prefer managed Mongo/Redis and remove those services.
+3. Run one worker process per deployment: `node src/worker.js` (or `pm2` app `jkc-worker`) so BullMQ jobs run; the API container does not need to run them when scaled out.
+4. Seed once: `SEED_ADMIN_PASSWORD=… npm run seed` then unset the variable.
+5. Nginx in front (TLS via certbot). Sample:
+
+```nginx
+server {
+  listen 443 ssl http2; server_name api.example.com;
+  location / {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;                      # Socket.io websockets
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    client_max_body_size 1m;
+  }
+}
+```
+
+With several API replicas use `ip_hash` (or sticky cookies) for Socket.io; the Redis adapter handles fan-out between them.
+
+**Render / Railway (API)**: Docker web service from `backend/`, health check `/health`, plus a second "background worker" service with command `node src/worker.js`. Add the env vars from `docs/environment.md`.
+
+**Vercel / Netlify (frontend)**: root `frontend/`, build `npm run build`, output `dist`, set the `VITE_*` variables. `frontend/vercel.json` adds SPA rewrites, security headers and immutable asset caching. On Netlify add the equivalent `_redirects` (`/* /index.html 200`). Alternatively use the `frontend/Dockerfile` (unprivileged nginx on :8080; edit the CSP `connect-src`/`img-src` in `frontend/nginx.conf`).
+
+**Monitoring**: set `METRICS_TOKEN` and scrape `/metrics` with Prometheus (bearer token); set `SENTRY_DSN` (and `npm i @sentry/node`) for error tracking. Pino JSON logs go to stdout; ship them with your platform.
+
+Production checklist: [docs/environment.md](docs/environment.md#production-checklist). Security controls and audit: [docs/security.md](docs/security.md).
 
 ## Scaling
 
@@ -136,4 +167,4 @@ Prettier + ESLint enforced by a Husky pre-commit (lint-staged). Enums/constants 
 - [x] **Phase 5** table booking: slot inventory with atomic seat counters (no double booking), optional refundable deposit with auto-expiring holds, reminders, cancellation rules, booking calendar API; frontend booking flow
 - [x] **Phase 6** party booking: packages, inquiry → quote → accept (atomic date reservation) → token payment → confirmed, status timeline, expiry jobs; frontend
 - [x] **Phase 7** admin/staff console: live orders board with sound alert, menu manager (stock toggle + ImageKit upload), bookings calendar + slots, party inbox + quotes + packages, coupons, banners, users, reviews, settings (open/closed switch), dashboard with rollup-backed charts and counters
-- [ ] Phase 8 perf/security/docs
+- [x] **Phase 8** hardening: index/explain audit, security + access-control matrix tests, Prometheus metrics, error tracking hook, load test, security and deployment docs

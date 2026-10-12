@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { gsap, useGSAP, prefersReducedMotion } from '../../lib/gsap.js';
 
 /**
- * Word-by-word reveal. Text is split into spans (accessible: the full text is in aria-label).
+ * Word-by-word reveal. Text is split into spans (accessible: the full text is in a visually hidden span).
  * @param {{text: string, as?: string, className?: string, delay?: number}} props
  */
 export default function SplitText({ text, as: Tag = 'span', className, delay = 0 }) {
@@ -23,7 +23,8 @@ export default function SplitText({ text, as: Tag = 'span', className, delay = 0
     { scope: ref, dependencies: [text] },
   );
   return (
-    <Tag ref={ref} className={className} aria-label={text}>
+    <Tag ref={ref} className={className}>
+      <span className="sr-only">{text}</span>
       {words.map((w, i) => (
         <span
           key={`${w}-${i}`}
